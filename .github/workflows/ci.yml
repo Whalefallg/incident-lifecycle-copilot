@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run offline test suite
+        env:
+          RAG_MODE: local
+          REDIS_STATE_ENABLED: "false"
+          SEMANTIC_CACHE_ENABLED: "false"
+          MODEL_ROUTING_ENABLED: "false"
+        run: python -m pytest -q

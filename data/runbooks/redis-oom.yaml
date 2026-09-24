@@ -1,0 +1,57 @@
+incident_id: INC-2024-0891
+alert_name: redis-memory-high
+service: redis-cache
+severity: P1
+symptoms: |
+  - Redis memory utilization > 85% sustained for > 15 minutes
+  - Elevated checkout latency (p99 > 2s, baseline 300ms)
+  - Increased cache miss rate
+  - Occasional connection timeout errors in checkout-service logs
+
+root_cause: |
+  Most common causes (in order of frequency):
+  1. Connection pool leak after a recent deploy to checkout-service
+  2. Unbounded session accumulation (TTL not set on new session keys)
+  3. Large key injection from a batch job writing to the wrong Redis instance
+  4. Memory fragmentation after long uptime (ratio > 1.5)
+
+resolution: |
+  Immediate mitigation:
+  1. Scale Redis replica vertically if memory is > 90% (kubectl scale or AWS console)
+  2. Run MEMORY DOCTOR in redis-cli to identify fragmentation
+  3. If leak confirmed post-deploy, initiate rollback of the offending service version
+
+  Root cause fix:
+  - For connection pool leak: patch pool config (max_connections, timeout), redeploy
+  - For TTL issue: run a one-time cleanup script + enforce TTL in code review checklist
+  - For batch job: redirect batch writes to redis-batch (non-production cluster)
+
+runbook_steps:
+  - "1. Check memory usage: redis-cli -h <host> INFO memory | grep used_memory_human"
+  - "2. Identify large keys: redis-cli --bigkeys (run during low-traffic window)"
+  - "3. Check recent deploys in last 2h: kubectl rollout history deployment/checkout-service"
+  - "4. Check connection count: redis-cli INFO clients | grep connected_clients"
+  - "5. If memory > 90%: kubectl scale deployment/redis-cache --replicas=2 -n prod"
+  - "6. Monitor: watch -n 5 'redis-cli INFO memory | grep used_memory_human'"
+  - "7. If stable after 15min: mark incident mitigated, continue RCA"
+
+on_call_rotation: platform-sre
+related_alerts:
+  - checkout-error-rate
+  - redis-eviction-rate
+  - checkout-latency-p99
+
+past_incidents:
+  - id: INC-2024-0312
+    date: "2024-03-12"
+    root_cause: "Connection pool leak in checkout-service v2.3.1"
+    resolution_time_min: 47
+    action_items: "Add pool exhaustion alert, enforce pool config in code review"
+
+  - id: INC-2024-0601
+    date: "2024-06-01"
+    root_cause: "Batch job writing 2M keys without TTL"
+    resolution_time_min: 32
+    action_items: "Redirect batch writes to dedicated cluster, add key-count alert"
+
+tags: [redis, cache, memory, oom, checkout]

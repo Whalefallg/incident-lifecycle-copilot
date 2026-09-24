@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Lifecycle Copilot</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 1000px;
+            height: 90vh;
+            background: rgba(20, 25, 45, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            padding: 20px 30px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .header-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .header-subtitle {
+            font-size: 13px;
+            opacity: 0.85;
+            font-weight: 400;
+        }
+
+        .nav-bar {
+            background: rgba(30, 35, 55, 0.98);
+            padding: 12px 30px;
+            border-bottom: 1px solid rgba(100,150,200,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(100,150,200,0.3);
+            background: rgba(50, 60, 80, 0.6);
+            color: #e0e7ff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-btn:hover {
+            background: rgba(70, 80, 110, 0.8);
+            border-color: rgba(100,150,200,0.5);
+            transform: translateY(-1px);
+        }
+
+        .nav-btn.clear {
+            background: rgba(220, 38, 38, 0.2);
+            border-color: rgba(220, 38, 38, 0.4);
+        }
+
+        .nav-btn.clear:hover {
+            background: rgba(220, 38, 38, 0.4);
+        }
+
+        .chat-content {
+            flex: 1;
+            padding: 20px 30px;
+            overflow-y: auto;
+            background: linear-gradient(to bottom, rgba(15,20,35,0.95), rgba(20,25,40,0.95));
+            scroll-behavior: smooth;
+        }
+
+        .chat-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-content::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+
+        .chat-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3b82f6, #1e40af);
+            border-radius: 4px;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-end;
+            animation: messageSlide 0.3s ease;
+        }
+
+        @keyframes messageSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .message.user .avatar {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .message.bot .avatar {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .bubble {
+            max-width: 75%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            font-size: 15px;
+            line-height: 1.5;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .message.user .bubble {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.bot .bubble {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            color: #2c3e50;
+            border-bottom-left-radius: 5px;
+            border: 2px solid rgba(79, 172, 254, 0.2);
+            font-weight: 500;
+        }
+
+        /* 机器人回复中的特殊文本样式 */
+        .bot-reply {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .bot-thought {
+            color: #7f8c8d;
+            font-style: italic;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .bot-success {
+            color: #27ae60;
+            font-weight: 700;
+            background: linear-gradient(135deg, #d5f4e6 0%, #e8f8f5 100%);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #27ae60;
+        }
+
+        .bot-error {
+            color: #e74c3c;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fadbd8 0%, #f2d7d5 100%);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .bot-info {
+            color: #3498db;
+            font-weight: 600;
+            background: linear-gradient(135deg, #d6eaf8 0%, #eaf4fd 100%);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #3498db;
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: rgba(255,255,255,0.95);
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+
+        #chat-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 15px 20px;
+            border-radius: 25px;
+            border: 2px solid rgba(0,0,0,0.1);
+            font-size: 15px;
+            background: white;
+            transition: all 0.3s ease;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        #user-input:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        #user-input::placeholder {
+            color: #999;
+            opacity: 1;
+        }
+
+        #send-btn {
+            padding: 15px 25px;
+            border-radius: 25px;
+            border: none;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        #send-btn:active {
+            transform: translateY(0);
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 20px;
+            margin: 10px 0;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .chat-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 15px;
+            }
+
+            .header, .nav-bar, .chat-content, .input-area {
+                padding-left: 20px;
+                padding-right: 20px;
+            }
+
+            .nav-bar {
+                justify-content: flex-start;
+                overflow-x: auto;
+                padding-bottom: 20px;
+            }
+
+            .bubble {
+                max-width: 85%;
+            }
+
+            .header-title {
+                font-size: 20px;
+            }
+
+            .header-subtitle {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <div class="header-title">
+                <i class="fas fa-shield-alt"></i>
+                Incident Lifecycle Copilot
+            </div>
+            <div class="header-subtitle">
+                Multi-Agent SRE Assistant &mdash; Triage &bull; Escalation &bull; Runbook RAG &bull; Status Updates &bull; Postmortem Generation
+            </div>
+        </div>
+
+        <div class="nav-bar">
+            <button class="nav-btn" onclick="sendQuickMessage('[PagerDuty] CRITICAL: checkout-service error rate 8%')">
+                <i class="fas fa-exclamation-triangle"></i>
+                P0 Alert
+            </button>
+            <button class="nav-btn" onclick="sendQuickMessage('how did we fix the Redis OOM last time?')">
+                <i class="fas fa-book"></i>
+                Runbook Lookup
+            </button>
+            <button class="nav-btn" onclick="sendQuickMessage('write an update for all stakeholders')">
+                <i class="fas fa-bullhorn"></i>
+                Status Update
+            </button>
+            <button class="nav-btn" onclick="sendQuickMessage('incident resolved, generate the postmortem')">
+                <i class="fas fa-file-alt"></i>
+                Postmortem
+            </button>
+            <button class="nav-btn clear" id="clear-btn">
+                <i class="fas fa-trash-alt"></i>
+                New Incident
+            </button>
+        </div>
+
+        <!-- 聊天内容区域 -->
+        <div class="chat-content" id="chat-box">
+            <div class="message bot">
+                <div class="avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="bubble">
+                    <div class="bot-info">
+                        <strong>Incident Lifecycle Copilot Online</strong>
+                    </div>
+                    <div class="bot-reply">
+                        I can assist with:<br><br>
+                        <strong>P0/P1 Escalation</strong> &mdash; severity assessment, on-call dispatch, impact collection<br>
+                        <strong>Runbook Retrieval</strong> &mdash; RAG over 5 production runbooks + past incidents<br>
+                        <strong>Status Updates</strong> &mdash; auto-generate engineer/support/exec versions<br>
+                        <strong>Postmortem Generation</strong> &mdash; timeline reconstruction from session history<br><br>
+                        Paste an alert payload or describe an incident to begin.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 打字指示器 -->
+        <div class="typing-indicator" id="typing-indicator">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <span style="margin-left: 10px; color: #94a3b8;">Agent processing...</span>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-area">
+            <form id="chat-form">
+                <input type="text" id="user-input" maxlength="2000" aria-label="Incident message" placeholder="Paste alert, ask for runbook, request status update..." autocomplete="off" required>
+                <button id="send-btn" type="submit">
+                    <i class="fas fa-paper-plane"></i>
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+    <script>
+    const chatBox = document.getElementById('chat-box');
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const clearBtn = document.getElementById('clear-btn');
+    const typingIndicator = document.getElementById('typing-indicator');
+    let lastBotBubble = null;
+
+    function escapeHtml(value) {
+        const element = document.createElement('div');
+        element.textContent = value;
+        return element.innerHTML;
+    }
+
+    function safeMultiline(value) {
+        return escapeHtml(value).replace(/\n/g, '<br>');
+    }
+
+    function sendQuickMessage(message) {
+        userInput.value = message;
+        chatForm.dispatchEvent(new Event('submit'));
+    }
+
+    function addMessage(text, sender) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'message ' + sender;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        if (sender === 'user') {
+            avatar.innerHTML = '<i class="fas fa-user"></i>';
+        } else {
+            avatar.innerHTML = '<i class="fas fa-robot"></i>';
+        }
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = safeMultiline(text);
+
+        msgDiv.appendChild(avatar);
+        msgDiv.appendChild(bubble);
+        chatBox.appendChild(msgDiv);
+
+        // 平滑滚动到底部
+        requestAnimationFrame(() => {
+            chatBox.scrollTo({
+                top: chatBox.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+
+        if (sender === 'bot') lastBotBubble = bubble;
+    }
+
+    function showTypingIndicator() {
+        typingIndicator.style.display = 'block';
+        requestAnimationFrame(() => {
+            chatBox.scrollTo({
+                top: chatBox.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+    }
+
+    function hideTypingIndicator() {
+        typingIndicator.style.display = 'none';
+    }
+
+    function updateLastBotMessage(text) {
+        if (lastBotBubble) {
+            // 用正则分割所有 [THOUGHT]、[REPLY]、[STATE] 标签及其内容
+            const pattern = /(\[THOUGHT[^\]]*\][\s\S]*?)(?=\[THOUGHT|\[REPLY|\[STATE|$)|(\[REPLY[^\]]*\][\s\S]*?)(?=\[THOUGHT|\[REPLY|\[STATE|$)/g;
+            let result = [];
+            let match;
+            while ((match = pattern.exec(text)) !== null) {
+                if (match[1]) {
+                    // Show a concise activity trace, not raw model reasoning.
+                    const activityText = safeMultiline(
+                        match[1].replace(/\[THOUGHT[^\]]*\]/, '').trim()
+                    );
+                    result.push(`<div class="bot-thought">Agent activity: ${activityText}</div>`);
+                } else if (match[2]) {
+                    // REPLY - 最终回复，使用突出颜色
+                    const rawReplyText = match[2].replace(/\[REPLY[^\]]*\]/, '').trim();
+                    const replyText = safeMultiline(rawReplyText);
+
+                    // 检查回复类型并应用不同样式
+                    let styledReply = replyText;
+                    if (rawReplyText.includes('escalation initiated') || rawReplyText.includes('dispatched') || rawReplyText.includes('P0') || rawReplyText.includes('P1')) {
+                        styledReply = `<div class="bot-error">${replyText}</div>`;
+                    } else if (rawReplyText.includes('resolved') || rawReplyText.includes('success') || rawReplyText.includes('completed')) {
+                        styledReply = `<div class="bot-success">${replyText}</div>`;
+                    } else if (rawReplyText.includes('runbook') || rawReplyText.includes('steps') || rawReplyText.includes('guide')) {
+                        styledReply = `<div class="bot-info">${replyText}</div>`;
+                    } else {
+                        styledReply = `<div class="bot-reply">${replyText}</div>`;
+                    }
+
+                    result.push(styledReply);
+                }
+            }
+            lastBotBubble.innerHTML = result.length
+                ? result.join('')
+                : `<div class="bot-reply">${safeMultiline(text)}</div>`;
+
+            // 内容更新后自动滚动
+            requestAnimationFrame(() => {
+                chatBox.scrollTo({
+                    top: chatBox.scrollHeight,
+                    behavior: 'smooth'
+                });
+            });
+        }
+    }
+
+    chatForm.onsubmit = async function(e) {
+        e.preventDefault();
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // 禁用发送按钮
+        const sendBtn = document.getElementById('send-btn');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        addMessage(text, 'user');
+        userInput.value = '';
+
+        // 显示打字指示器
+        showTypingIndicator();
+
+        // 添加空的机器人消息
+        addMessage('', 'bot');
+        lastBotBubble = chatBox.querySelector('.message.bot:last-child .bubble');
+
+        try {
+            const res = await fetch('/chat/stream', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: text})
+            });
+
+            if (!res.ok) {
+                let message = `Request failed (${res.status})`;
+                try {
+                    const payload = await res.json();
+                    message = payload.error || payload.detail || message;
+                } catch (_) {}
+                throw new Error(message);
+            }
+
+            hideTypingIndicator();
+
+            const reader = res.body.getReader();
+            let botMsg = '';
+            let decoder = new TextDecoder();
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                botMsg += decoder.decode(value, {stream: true});
+                updateLastBotMessage(botMsg);
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            lastBotBubble.innerHTML = `<div class="bot-error">${safeMultiline(error.message || 'Service unavailable. Please try again.')}</div>`;
+            console.error('Chat error:', error);
+        } finally {
+            // 恢复发送按钮
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
+            userInput.focus();
+        }
+    }
+
+    clearBtn.onclick = async function() {
+        clearBtn.disabled = true;
+        try {
+            const response = await fetch('/chat/session', {method: 'DELETE'});
+            if (!response.ok) throw new Error('Unable to reset the server session');
+
+        // 保留欢迎消息，只清除其他对话
+        const welcomeMessage = chatBox.querySelector('.message.bot').cloneNode(true);
+        chatBox.innerHTML = '';
+        chatBox.appendChild(welcomeMessage);
+
+        // 重新设置lastBotBubble为null
+        lastBotBubble = null;
+
+        // 聚焦输入框
+        userInput.focus();
+        } catch (error) {
+            addMessage(error.message, 'bot');
+        } finally {
+            clearBtn.disabled = false;
+        }
+    }
+
+    // 添加回车键发送功能
+    userInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatForm.dispatchEvent(new Event('submit'));
+        }
+    });
+
+    // 页面加载完成后聚焦输入框
+    window.addEventListener('load', function() {
+        userInput.focus();
+    });
+    </script>
+</body>
+</html>

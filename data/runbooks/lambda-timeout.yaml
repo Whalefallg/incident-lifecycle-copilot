@@ -1,0 +1,68 @@
+incident_id: INC-2024-0778
+alert_name: lambda-timeout-processor
+service: lambda-processor
+severity: P1
+symptoms: |
+  - Lambda function timeout rate > 10% (baseline: <1%)
+  - CloudWatch logs showing "Task timed out after 30.00 seconds"
+  - Backlog accumulating in Kafka notification-events topic
+  - Delayed email/SMS notifications to customers (2+ hour lag)
+
+root_cause: |
+  Common causes:
+  1. External API call (email/SMS provider) taking > 25s without timeout config (40%)
+  2. Lambda cold start + large dependency bundle causing init > 10s (30%)
+  3. Kafka consumer fetching too many messages, processing serially (20%)
+  4. Memory exhaustion due to large payload deserialization (10%)
+
+resolution: |
+  Immediate actions:
+  1. Check external provider status:
+     - SendGrid: https://status.sendgrid.com
+     - Twilio: https://status.twilio.com
+  2. Check Lambda metrics: aws cloudwatch get-metric-statistics --namespace AWS/Lambda --metric-name Duration
+  3. Check Kafka lag: kafka-consumer-groups --describe --group lambda-processor --bootstrap-server kafka:9092
+
+  Mitigation:
+  - If provider slow: add 5s timeout to external API calls, retry failed messages from DLQ
+  - If cold start issue: enable provisioned concurrency OR reduce bundle size (lazy load deps)
+  - If Kafka backlog: increase Lambda concurrency limit OR parallelize batch processing
+  - If memory issue: increase Lambda memory allocation from 512MB to 1024MB
+
+runbook_steps:
+  - "1. Check CloudWatch timeout count: aws cloudwatch get-metric-statistics --metric-name Errors --namespace AWS/Lambda --dimensions Name=FunctionName,Value=notification-processor --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) --end-time $(date -u +%Y-%m-%dT%H:%M:%S) --period 300 --statistics Sum"
+  - "2. Check external provider status pages"
+  - "3. Review Lambda logs: aws logs tail /aws/lambda/notification-processor --since 30m --filter-pattern 'timed out'"
+  - "4. Check Kafka consumer lag: kafka-consumer-groups.sh --describe --group lambda-processor --bootstrap-server kafka.prod:9092"
+  - "5. Increase timeout if safe: aws lambda update-function-configuration --function-name notification-processor --timeout 60"
+  - "6. Add concurrency if needed: aws lambda put-function-concurrency --function-name notification-processor --reserved-concurrent-executions 50"
+  - "7. Redrive DLQ messages: python scripts/redrive_dlq.py --queue notification-processor-dlq"
+  - "8. Monitor recovery: watch 'aws cloudwatch get-metric-statistics (repeat step 1)'"
+
+on_call_rotation: platform-sre
+related_alerts:
+  - kafka-consumer-lag-high
+  - sendgrid-api-error
+  - twilio-api-error
+  - lambda-memory-utilization
+
+past_incidents:
+  - id: INC-2024-0412
+    date: "2024-04-12"
+    root_cause: "SendGrid API intermittent 504 errors without client-side timeout"
+    resolution_time_min: 55
+    action_items: "Add 5s HTTP timeout, implement exponential backoff retry"
+
+  - id: INC-2024-0720
+    date: "2024-07-20"
+    root_cause: "Lambda bundle size 80MB causing 15s cold start"
+    resolution_time_min: 72
+    action_items: "Split into 3 smaller functions, enable provisioned concurrency"
+
+  - id: INC-2024-1101
+    date: "2024-11-01"
+    root_cause: "Kafka fetching 500 messages per poll, processing serially"
+    resolution_time_min: 38
+    action_items: "Reduce max.poll.records to 50, parallelize with asyncio"
+
+tags: [lambda, timeout, async, kafka, notification, email, sms, cold-start]

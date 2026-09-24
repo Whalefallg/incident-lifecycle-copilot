@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: incident-lifecycle-copilot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/monitoring/health
+    autoDeploy: true
+    envVars:
+      - key: MODEL_PROVIDER
+        value: openai
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: RAG_MODE
+        value: local
+      - key: REDIS_STATE_ENABLED
+        value: "false"
+      - key: SEMANTIC_CACHE_ENABLED
+        value: "false"
+      - key: MODEL_ROUTING_ENABLED
+        value: "false"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DEMO_RATE_LIMIT_PER_MINUTE
+        value: "8"
+      - key: SESSION_TTL_SECONDS
+        value: "3600"
+      - key: WEB_CONCURRENCY
+        value: "1"

@@ -1,0 +1,68 @@
+incident_id: INC-2024-0556
+alert_name: payment-gateway-timeout
+service: payment-gateway
+severity: P0
+symptoms: |
+  - Payment gateway response time p99 > 10s (SLO: 2s)
+  - Elevated timeout errors in checkout-service logs
+  - Datadog APM showing slow external API calls to Stripe/Braintree
+  - Customer-facing error: "Payment processing timeout, please retry"
+
+root_cause: |
+  Common causes:
+  1. Upstream payment provider (Stripe/Braintree) API degradation or regional outage (50%)
+  2. Fraud service taking > 5s to respond, blocking payment flow (25%)
+  3. Database query timeout when writing transaction ledger (15%)
+  4. Network issue between AWS region and payment provider datacenter (10%)
+
+resolution: |
+  Triage steps:
+  1. Check payment provider status pages:
+     - Stripe: https://status.stripe.com
+     - Braintree: https://status.braintreepayments.com
+  2. Check fraud-service latency: datadog query 'avg:fraud.latency.p99{env:prod}'
+  3. Check DB query performance: SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10
+
+  Mitigation:
+  - If provider degraded: switch to fallback provider via feature flag PAYMENT_PROVIDER=braintree
+  - If fraud-service slow: enable async fraud check (deferred post-payment)
+  - If DB slow: identify and kill long-running queries, consider read replica for ledger writes
+  - If network issue: route traffic to alternate AWS region
+
+runbook_steps:
+  - "1. Check upstream status pages: Stripe, Braintree"
+  - "2. Review APM external call traces: Datadog APM > payment-gateway > external services"
+  - "3. Check fraud-service latency: datadog query 'avg:fraud.latency.p99{env:prod}'"
+  - "4. Check database: psql -c 'SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 5'"
+  - "5. Switch provider if needed: kubectl set env deployment/payment-gateway PAYMENT_PROVIDER=braintree -n prod"
+  - "6. Enable async fraud check: kubectl set env deployment/payment-gateway FRAUD_MODE=async -n prod"
+  - "7. Monitor recovery: watch 'datadog query avg:payment.latency.p99{env:prod}'"
+  - "8. Notify customer support: post update in #support-escalations Slack"
+
+on_call_rotation: payments-eng
+related_alerts:
+  - checkout-error-rate-high
+  - fraud-service-latency
+  - ledger-write-slow
+  - stripe-api-error
+
+past_incidents:
+  - id: INC-2024-0203
+    date: "2024-02-03"
+    root_cause: "Stripe API regional outage in us-east-1"
+    resolution_time_min: 35
+    action_items: "Implement multi-region fallback, set up Stripe webhook backfill"
+
+  - id: INC-2024-0629
+    date: "2024-06-29"
+    root_cause: "Fraud-service model inference taking 12s per transaction"
+    resolution_time_min: 48
+    action_items: "Move to async fraud check, optimize model with quantization"
+
+  - id: INC-2024-0910
+    date: "2024-09-10"
+    root_cause: "Ledger table lock contention during high-volume sale"
+    resolution_time_min: 62
+    action_items: "Partition ledger table by month, add index on transaction_id"
+
+tags: [payment, gateway, timeout, stripe, braintree, fraud, latency]

@@ -1,0 +1,67 @@
+incident_id: INC-2024-1203
+alert_name: checkout-error-rate-high
+service: checkout-service
+severity: P0
+symptoms: |
+  - Checkout service error rate > 5% (threshold: 2%)
+  - Elevated 500 responses from /api/checkout/create endpoint
+  - Datadog APM showing timeouts connecting to payment-gateway
+  - Customer reports of "payment failed" errors despite successful charges
+
+root_cause: |
+  Historical root causes (last 6 months):
+  1. Payment-gateway circuit breaker tripped after upstream provider degradation (40%)
+  2. Database connection pool exhaustion during traffic spike (30%)
+  3. Recently deployed code change with unhandled exception (20%)
+  4. Redis cache unavailable, causing checkout to fail fast (10%)
+
+resolution: |
+  Immediate triage:
+  1. Check payment-gateway health: curl https://payment-gateway/healthz
+  2. Verify DB connection pool: SELECT count(*) FROM pg_stat_activity WHERE datname='checkout'
+  3. Check recent deploys: kubectl rollout history deployment/checkout-service -n prod
+  4. Review Datadog APM traces for error stack traces
+
+  Mitigation paths:
+  - If payment-gateway degraded: enable fallback processor or queue for retry
+  - If DB pool exhausted: scale checkout replicas OR increase pool size via config
+  - If bad deploy: rollback immediately (kubectl rollout undo deployment/checkout-service)
+  - If Redis down: restart checkout with REDIS_FALLBACK_ENABLED=true env var
+
+runbook_steps:
+  - "1. Confirm error rate: datadog query 'avg:checkout.error_rate{env:prod}'"
+  - "2. Check payment-gateway: curl -s https://payment-gateway.internal/healthz | jq '.status'"
+  - "3. Check DB connections: psql -c 'SELECT count(*) FROM pg_stat_activity WHERE state=active'"
+  - "4. Review recent deploy: kubectl rollout history deployment/checkout-service -n prod | tail -5"
+  - "5. Check APM traces: open Datadog APM, filter service:checkout-service, error:true, last 15min"
+  - "6. Rollback if bad deploy: kubectl rollout undo deployment/checkout-service -n prod"
+  - "7. Monitor recovery: watch 'datadog query avg:checkout.error_rate{env:prod}'"
+  - "8. If not recovering in 10min: escalate to payments-eng + platform-sre bridge"
+
+on_call_rotation: platform-sre
+related_alerts:
+  - payment-gateway-timeout
+  - postgres-connection-pool-high
+  - redis-unavailable
+  - checkout-latency-p99
+
+past_incidents:
+  - id: INC-2024-0425
+    date: "2024-04-25"
+    root_cause: "Payment gateway circuit breaker tripped due to Stripe API 503s"
+    resolution_time_min: 28
+    action_items: "Enable fallback to Braintree, add circuit breaker alert"
+
+  - id: INC-2024-0718
+    date: "2024-07-18"
+    root_cause: "DB pool exhaustion during Black Friday simulation load test"
+    resolution_time_min: 52
+    action_items: "Increase pool size from 20 to 50, add auto-scaling for checkout pods"
+
+  - id: INC-2024-1015
+    date: "2024-10-15"
+    root_cause: "Unhandled null pointer in checkout v3.2.1 when promo code invalid"
+    resolution_time_min: 15
+    action_items: "Add null checks, improve test coverage for promo edge cases"
+
+tags: [checkout, error-rate, payment, gateway, database, deploy]

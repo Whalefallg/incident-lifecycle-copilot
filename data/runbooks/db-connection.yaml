@@ -1,0 +1,66 @@
+incident_id: INC-2024-1022
+alert_name: postgres-connection-pool-exhausted
+service: postgres-primary
+severity: P1
+symptoms: |
+  - Application logs showing "FATAL: remaining connection slots are reserved for non-replication superuser connections"
+  - Datadog metric db.connections.active approaching max_connections limit (95/100)
+  - Elevated 500 errors across multiple services (checkout, auth, ledger)
+  - RDS CPU utilization spiking to 80%+
+
+root_cause: |
+  Common causes:
+  1. Application connection pool not releasing connections (leak in ORM layer) (35%)
+  2. Long-running query holding connections open (slow analytical query from dashboard) (30%)
+  3. Traffic spike exceeding configured pool size across all services (20%)
+  4. Connection pool misconfigured (each pod has pool_size=20, but 10 pods = 200 > max_connections) (15%)
+
+resolution: |
+  Immediate triage:
+  1. Check active connections: SELECT count(*), state FROM pg_stat_activity GROUP BY state;
+  2. Identify blocking queries: SELECT pid, now() - pg_stat_activity.query_start AS duration, query FROM pg_stat_activity WHERE state != 'idle' ORDER BY duration DESC;
+  3. Check per-service breakdown: SELECT application_name, count(*) FROM pg_stat_activity GROUP BY application_name;
+
+  Mitigation:
+  - If long query: kill it with SELECT pg_terminate_backend(pid) WHERE pid = <slow_query_pid>
+  - If connection leak: restart the leaking service pods (kubectl rollout restart deployment/<service>)
+  - If traffic spike: scale up max_connections in RDS parameter group (requires reboot) OR scale out with read replicas
+  - If pool misconfigured: reduce pool_size in app config (checkout from 20 → 10, auth from 20 → 10)
+
+runbook_steps:
+  - "1. Check connection count: psql -h postgres-primary.prod -c 'SELECT count(*), state FROM pg_stat_activity GROUP BY state'"
+  - "2. Identify long queries: psql -c 'SELECT pid, now() - query_start AS duration, left(query, 60) FROM pg_stat_activity WHERE state != idle ORDER BY duration DESC LIMIT 10'"
+  - "3. Kill long query if needed: psql -c 'SELECT pg_terminate_backend(<pid>)'"
+  - "4. Check per-service: psql -c 'SELECT application_name, count(*) FROM pg_stat_activity GROUP BY application_name'"
+  - "5. Restart leaking service: kubectl rollout restart deployment/checkout-service -n prod"
+  - "6. Monitor connections: watch 'psql -c SELECT count(*) FROM pg_stat_activity'"
+  - "7. If not recovering: increase max_connections in RDS console (requires reboot coordination)"
+  - "8. Update pool sizes in app configs to stay under limit: total_pools * pool_size < max_connections"
+
+on_call_rotation: platform-sre
+related_alerts:
+  - postgres-cpu-high
+  - checkout-error-rate-high
+  - auth-service-degraded
+  - rds-storage-iops-exhausted
+
+past_incidents:
+  - id: INC-2024-0305
+    date: "2024-03-05"
+    root_cause: "Dashboard running hourly report query taking 15min, holding 10 connections"
+    resolution_time_min: 42
+    action_items: "Move report to read replica, add query timeout of 60s"
+
+  - id: INC-2024-0618
+    date: "2024-06-18"
+    root_cause: "Checkout service connection leak after ORM upgrade to v2.0"
+    resolution_time_min: 67
+    action_items: "Downgrade ORM, add connection pool metrics to Datadog"
+
+  - id: INC-2024-0925
+    date: "2024-09-25"
+    root_cause: "Black Friday traffic spike, 20 pods * 20 pool_size = 400 > max_connections 100"
+    resolution_time_min: 88
+    action_items: "Reduce pool_size to 5 per pod, increase max_connections to 200, enable pgBouncer"
+
+tags: [postgres, database, connection, pool, exhaustion, rds, cpu]

@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: incident-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - incident-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  celery-worker:
+    build: .
+    container_name: incident-celery-worker
+    command: celery -A config.celery_tasks worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - SEMANTIC_CACHE_ENABLED=false
+      - MODEL_ROUTING_ENABLED=false
+      - RAG_MODE=local
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - incident-network
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    container_name: incident-celery-beat
+    command: celery -A config.celery_tasks beat --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - incident-network
+    restart: unless-stopped
+
+  flower:
+    build: .
+    container_name: incident-flower
+    command: celery -A config.celery_tasks flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    networks:
+      - incident-network
+    restart: unless-stopped
+
+  fastapi:
+    build: .
+    container_name: incident-fastapi
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --workers 1
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - SEMANTIC_CACHE_ENABLED=false
+      - MODEL_ROUTING_ENABLED=false
+      - RAG_MODE=local
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - incident-network
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+
+networks:
+  incident-network:
+    driver: bridge

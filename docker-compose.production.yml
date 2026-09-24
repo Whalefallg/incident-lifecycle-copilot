@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # ==================== Redis 服务 ====================
+  redis:
+    image: redis:7.2-alpine
+    container_name: incident_copilot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - copilot_network
+
+  # ==================== FastAPI 服务 ====================
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incident_copilot_api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_STATE_ENABLED=true
+      - SEMANTIC_CACHE_ENABLED=false
+      - MODEL_ROUTING_ENABLED=false
+      - RAG_MODE=local
+    env_file:
+      - .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - copilot_network
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --workers 1
+
+  # ==================== Celery Worker ====================
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incident_copilot_celery
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - copilot_network
+    command: celery -A config.celery_tasks worker --loglevel=info --concurrency=4
+
+  # ==================== Celery Beat (可选，定时任务) ====================
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incident_copilot_celery_beat
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    env_file:
+      - .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - copilot_network
+    command: celery -A config.celery_tasks beat --loglevel=info
+
+  # ==================== Flower (Celery 监控，可选) ====================
+  flower:
+    image: mher/flower:2.0
+    container_name: incident_copilot_flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - copilot_network
+
+volumes:
+  redis_data:
+
+networks:
+  copilot_network:
+    driver: bridge
