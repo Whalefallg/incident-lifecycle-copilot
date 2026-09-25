@@ -4,8 +4,9 @@ Constructs prompts for runbook retrieval, incident lookup, and
 classification of whether a query is within scope.
 """
 
-from typing import List, Dict, Any
-from config.domain_knowledge import get_domain_context, get_severity_guide
+from config.domain_knowledge import get_domain_context
+
+from .retrieval import RetrievalResult
 
 
 class PromptBuilder:
@@ -50,14 +51,16 @@ class PromptBuilder:
             "Input: {user_input}"
         )
 
-    def build_consultation_prompt(self, user_input: str, knowledge_docs: List[Dict[str, Any]]) -> str:
+    def build_consultation_prompt(
+        self, user_input: str, knowledge_docs: list[RetrievalResult]
+    ) -> str:
         context = self._build_knowledge_context(knowledge_docs)
         return f"{self.system_prompt}\n\n{context}\nEngineer query: {user_input}\n\nProvide your answer:"
 
     def build_classification_prompt(self, user_input: str) -> str:
         return self.classification_prompt_template.format(user_input=user_input)
 
-    def _build_knowledge_context(self, knowledge_docs: List[Dict[str, Any]]) -> str:
+    def _build_knowledge_context(self, knowledge_docs: list[RetrievalResult]) -> str:
         if not knowledge_docs:
             return (
                 "No matching runbooks or past incidents found in the knowledge base.\n"
@@ -67,10 +70,9 @@ class PromptBuilder:
 
         context = "=== Retrieved Runbooks & Incident Memory ===\n"
         for i, doc in enumerate(knowledge_docs, 1):
-            score = doc.get('score', 0)
-            category = doc.get('category', 'unknown')
-            context += f"\n[{i}] (score={score:.3f}, category={category})\n"
-            context += doc['content'] + "\n"
+            score = "N/A" if doc.score is None else f"{doc.score:.3f}"
+            context += f"\n[{i}] (score={score}, source={doc.source})\n"
+            context += doc.content + "\n"
         context += "\n=== End of Retrieved Context ===\n"
         context += "\nBase your answer strictly on the above. Cite the incident ID or runbook name when relevant.\n"
         return context

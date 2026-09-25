@@ -1,263 +1,262 @@
-"""
-MCP RAG Client — subprocess-based stdio transport client for Modular RAG MCP Server.
+"""Long-lived stdio JSON-RPC client for the current rag-as-mcp contract."""
 
-Architecture:
-    ConsultantAgent / KnowledgeRetriever
-        → McpRagClient.query()
-        → subprocess (python -m src.mcp_server.server)  [MODULAR-RAG-MCP-SERVER]
-        → JSON-RPC 2.0 over stdin/stdout
-        → HybridSearch + Reranker + ResponseBuilder
-
-The MCP Server uses stdio transport: we spawn it as a subprocess, write
-JSON-RPC requests to its stdin, and read JSON-RPC responses from its stdout.
-
-One subprocess is kept alive for the lifetime of the client (lazy-started on
-first query, restarted automatically if the process dies).
-
-Environment variable:
-    RAG_MCP_SERVER_PATH   absolute path to MODULAR-RAG-MCP-SERVER project root
-                          (must contain config/settings.yaml)
-"""
+from __future__ import annotations
 
 import asyncio
 import json
 import logging
 import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
+
+from config.rag_mcp import RagMcpSettings
+
+from .mcp_response_parser import McpQueryResponseParser
+from .retrieval import RetrievalResult
 
 logger = logging.getLogger(__name__)
 
-# ── default path resolution ────────────────────────────────────────────────
-_DEFAULT_SERVER_PATH = str(Path.home() / "Projects" / "MODULAR-RAG-MCP-SERVER")
+
+class McpError(RuntimeError):
+    pass
+
+
+class McpNotConfigured(McpError):
+    pass
+
+
+class McpStartupError(McpError):
+    pass
+
+
+class McpProtocolError(McpError):
+    pass
+
+
+class McpCapabilityError(McpError):
+    pass
+
+
+class McpTimeoutError(McpError):
+    pass
+
+
+class McpProcessExited(McpError):
+    pass
+
+
+@dataclass(frozen=True)
+class McpCapabilities:
+    server_name: str
+    server_version: str
+    tools: tuple[str, ...]
 
 
 class McpRagClient:
-    """
-    Async client for the Modular RAG MCP Server.
+    """Owns one reusable rag-as-mcp process for an application worker."""
 
-    Usage:
-        client = McpRagClient()
-        await client.start()
+    REQUIRED_TOOL = "query_knowledge_hub"
 
-        results = await client.query("how to fix Redis OOM?", top_k=5)
-        # results: list of {"content": str, "source": str, "score": float}
-
-        await client.stop()
-
-    Or as an async context manager:
-        async with McpRagClient() as client:
-            results = await client.query("...")
-    """
-
-    def __init__(self, server_path: Optional[str] = None):
-        self._server_path = Path(
-            server_path
-            or os.environ.get("RAG_MCP_SERVER_PATH", _DEFAULT_SERVER_PATH)
-        )
-        self._process: Optional[asyncio.subprocess.Process] = None
+    def __init__(self, settings: RagMcpSettings | None = None) -> None:
+        self.settings = settings or RagMcpSettings.from_env()
+        self._process: asyncio.subprocess.Process | None = None
         self._lock = asyncio.Lock()
+        self._lifecycle_lock = asyncio.Lock()
         self._req_id = 0
-        self._initialized = False
+        self._stderr_task: asyncio.Task[None] | None = None
+        self.capabilities: McpCapabilities | None = None
+        self.parser = McpQueryResponseParser()
 
     @property
-    def server_path(self) -> Path:
-        return self._server_path
+    def server_path(self):
+        return self.settings.server_path
 
-    # ── lifecycle ──────────────────────────────────────────────────────────
-
-    async def start(self) -> None:
-        """Spawn the MCP Server subprocess and run the MCP initialize handshake."""
-        if self._process and self._process.returncode is None:
-            return  # already running
-
-        python = sys.executable
-        cmd = [python, "-m", "src.mcp_server.server"]
-        env = {**os.environ, "MCP_SETTINGS_PATH": "config/settings.yaml"}
-
-        logger.info(f"[McpRagClient] Starting MCP Server at {self._server_path}")
-        self._process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(self._server_path),
-            env=env,
-        )
-        self._initialized = False
-        await self._initialize()
-        logger.info("[McpRagClient] MCP Server ready")
+    async def start(self) -> McpCapabilities:
+        async with self._lifecycle_lock:
+            if self._process and self._process.returncode is None and self.capabilities:
+                return self.capabilities
+            path = self.settings.server_path
+            if path is None:
+                raise McpNotConfigured("RAG_MCP_SERVER_PATH is not configured")
+            if not path.is_dir():
+                raise McpNotConfigured(f"rag-as-mcp server path does not exist: {path}")
+            command = self.settings.server_command()
+            env = os.environ.copy()
+            if self.settings.settings_path:
+                env["MCP_SETTINGS_PATH"] = str(self.settings.settings_path)
+            try:
+                self._process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(path),
+                    env=env,
+                )
+                self._stderr_task = asyncio.create_task(self._drain_stderr(self._process))
+                initialized = await self._request(
+                    "initialize",
+                    {
+                        "protocolVersion": "2024-11-05",
+                        "clientInfo": {"name": "incident-lifecycle-copilot", "version": "1.0"},
+                    },
+                    timeout=self.settings.startup_timeout_seconds,
+                )
+                await self._notify("notifications/initialized", {})
+                tools_result = await self._request(
+                    "tools/list", {}, timeout=self.settings.startup_timeout_seconds
+                )
+                self.capabilities = self._validate_capabilities(initialized, tools_result)
+                return self.capabilities
+            except McpError:
+                await self._stop_unlocked()
+                raise
+            except OSError as exc:
+                await self._stop_unlocked()
+                raise McpStartupError(str(exc)) from exc
 
     async def stop(self) -> None:
-        """Terminate the subprocess gracefully."""
-        if self._process and self._process.returncode is None:
-            self._process.terminate()
+        async with self._lifecycle_lock:
+            await self._stop_unlocked()
+
+    async def _stop_unlocked(self) -> None:
+        process, self._process = self._process, None
+        stderr_task, self._stderr_task = self._stderr_task, None
+        self.capabilities = None
+        if process and process.returncode is None:
+            process.terminate()
             try:
-                await asyncio.wait_for(self._process.wait(), timeout=5.0)
+                await asyncio.wait_for(process.wait(), timeout=5)
             except asyncio.TimeoutError:
-                self._process.kill()
-        self._process = None
-        self._initialized = False
-
-    async def __aenter__(self) -> "McpRagClient":
-        await self.start()
-        return self
-
-    async def __aexit__(self, *_) -> None:
-        await self.stop()
-
-    # ── public API ─────────────────────────────────────────────────────────
-
-    async def query(
-        self,
-        query: str,
-        top_k: int = 5,
-        collection: str = "default",
-    ) -> List[Dict[str, Any]]:
-        """
-        Query the RAG knowledge base via the MCP Server.
-
-        Returns a list of result dicts, each with:
-            content  (str)   — the retrieved text chunk
-            source   (str)   — document name / citation
-            score    (float) — relevance score (if available)
-        """
-        await self._ensure_running()
-
-        response = await self._call_tool(
-            "query_knowledge_hub",
-            {"query": query, "top_k": top_k, "collection": collection},
-        )
-        return self._parse_query_response(response)
-
-    async def is_healthy(self) -> bool:
-        """Return True if the subprocess is alive and initialized."""
-        try:
-            await self._ensure_running()
-            return True
-        except Exception as e:
-            logger.warning(f"[McpRagClient] Health check failed: {e}")
-            return False
-
-    # ── internal ───────────────────────────────────────────────────────────
-
-    async def _ensure_running(self) -> None:
-        """Restart the subprocess if it has died."""
-        if self._process is None or self._process.returncode is not None:
-            logger.warning("[McpRagClient] Process not running — restarting")
-            await self.start()
-
-    async def _initialize(self) -> None:
-        """Send MCP initialize handshake."""
-        response = await self._send_request(
-            "initialize",
-            {"protocolVersion": "2024-11-05", "clientInfo": {"name": "incident-copilot", "version": "1.0"}},
-        )
-        server_info = response.get("result", {}).get("serverInfo", {})
-        logger.info(f"[McpRagClient] Server info: {server_info}")
-        self._initialized = True
-
-    async def _call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a tools/call request and return the result dict."""
-        response = await self._send_request(
-            "tools/call",
-            {"name": tool_name, "arguments": arguments},
-        )
-        if "error" in response:
-            raise RuntimeError(
-                f"MCP tool error [{tool_name}]: {response['error'].get('message', response['error'])}"
-            )
-        return response.get("result", {})
-
-    async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Send one JSON-RPC 2.0 request and await the corresponding response.
-
-        Uses a mutex so concurrent callers don't interleave reads/writes.
-        """
-        async with self._lock:
-            if self._process is None:
-                raise RuntimeError("MCP Server subprocess is not running")
-
-            self._req_id += 1
-            req_id = self._req_id
-            request = json.dumps(
-                {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params},
-                ensure_ascii=False,
-            ) + "\n"
-
-            # Write to subprocess stdin
-            self._process.stdin.write(request.encode())
-            await self._process.stdin.drain()
-
-            # Read response lines until we get one with matching id
-            # (MCP Server may emit log lines to stderr; stdout is JSON only)
-            while True:
-                try:
-                    line = await asyncio.wait_for(
-                        self._process.stdout.readline(), timeout=30.0
-                    )
-                except asyncio.TimeoutError:
-                    raise TimeoutError(f"MCP Server did not respond within 30s (method={method})")
-
-                if not line:
-                    # EOF — subprocess exited
-                    stderr_output = ""
-                    try:
-                        stderr_output = (await self._process.stderr.read()).decode(errors="replace")
-                    except Exception:
-                        pass
-                    raise RuntimeError(
-                        f"MCP Server subprocess exited unexpectedly. stderr: {stderr_output[:500]}"
-                    )
-
-                try:
-                    msg = json.loads(line.decode())
-                except json.JSONDecodeError:
-                    # Ignore non-JSON lines (shouldn't happen with correct server)
-                    logger.debug(f"[McpRagClient] Non-JSON stdout line: {line!r}")
-                    continue
-
-                if msg.get("id") == req_id:
-                    return msg
+                process.kill()
+                await process.wait()
+        if stderr_task:
+            try:
+                await asyncio.wait_for(stderr_task, timeout=1)
+            except asyncio.TimeoutError:
+                stderr_task.cancel()
 
     @staticmethod
-    def _parse_query_response(result: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Convert MCP tools/call result into a flat list of retrieval dicts.
+    async def _drain_stderr(process: asyncio.subprocess.Process) -> None:
+        if not process.stderr:
+            return
+        while line := await process.stderr.readline():
+            logger.debug("[rag-as-mcp] %s", line.decode(errors="replace").rstrip())
 
-        The RAG Server returns:
-            {
-                "content": [
-                    {"type": "text", "text": "## Results\n\n[1] ..."},
-                    {"type": "image", ...}   # optional
-                ],
-                "isError": false
-            }
+    async def ping(self) -> None:
+        self._require_started()
+        await self._request("ping", {})
 
-        We extract the text block and parse it into individual result entries.
-        """
-        if result.get("isError"):
-            logger.error(f"[McpRagClient] Server returned isError=true: {result.get('content')}")
-            return []
+    async def query(
+        self, query: str, *, top_k: int = 10, collection: str | None = None
+    ) -> list[RetrievalResult]:
+        if not 1 <= top_k <= 50:
+            raise ValueError("top_k must be in range 1..50")
+        arguments = {
+            "query": query,
+            "top_k": top_k,
+            "collection": collection or self.settings.collection,
+        }
+        for attempt in range(self.settings.max_retries + 1):
+            try:
+                self._require_started()
+                response = await self._request(
+                    "tools/call", {"name": self.REQUIRED_TOOL, "arguments": arguments}
+                )
+                return self.parser.parse(response)
+            except (McpTimeoutError, McpProcessExited, ConnectionError):
+                if attempt >= self.settings.max_retries:
+                    raise
+                await self.stop()
+                await self.start()
+        raise AssertionError("bounded retry loop exhausted")
 
-        content_items = result.get("content", [])
-        parsed: List[Dict[str, Any]] = []
+    async def search(
+        self, query: str, *, top_k: int = 10, collection: str = "default"
+    ) -> list[RetrievalResult]:
+        """Implement the backend-neutral Retriever protocol."""
+        return await self.query(query, top_k=top_k, collection=collection)
 
-        for item in content_items:
-            if item.get("type") != "text":
-                continue
+    def _require_started(self) -> None:
+        if not self._process or self._process.returncode is not None or not self.capabilities:
+            raise McpProcessExited("rag-as-mcp process is not running and ready")
 
-            text = item.get("text", "")
-            # Return the raw text as a single context block so PromptBuilder
-            # can use it directly.  For score / source metadata we do a
-            # best-effort parse; the raw text is always available as "content".
-            parsed.append({
-                "content": text,
-                "source": "modular-rag-mcp-server",
-                "score": 1.0,   # server already ranked results; treat as top
-                "category": "runbook",
-            })
+    async def _notify(self, method: str, params: dict[str, Any]) -> None:
+        if not self._process or not self._process.stdin:
+            raise McpProcessExited("cannot notify a stopped rag-as-mcp process")
+        payload = json.dumps({"jsonrpc": "2.0", "method": method, "params": params}) + "\n"
+        self._process.stdin.write(payload.encode())
+        await self._process.stdin.drain()
 
-        return parsed
+    async def _request(
+        self, method: str, params: dict[str, Any], *, timeout: float | None = None
+    ) -> dict[str, Any]:
+        async with self._lock:
+            process = self._process
+            if (
+                not process
+                or not process.stdin
+                or not process.stdout
+                or process.returncode is not None
+            ):
+                raise McpProcessExited("rag-as-mcp process is not running")
+            self._req_id += 1
+            request_id = self._req_id
+            payload = (
+                json.dumps(
+                    {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+            try:
+                process.stdin.write(payload.encode())
+                await process.stdin.drain()
+                line = await asyncio.wait_for(
+                    process.stdout.readline(),
+                    timeout=timeout or self.settings.request_timeout_seconds,
+                )
+            except asyncio.TimeoutError as exc:
+                raise McpTimeoutError(f"rag-as-mcp timed out during {method}") from exc
+            except (BrokenPipeError, ConnectionResetError) as exc:
+                raise McpProcessExited(f"rag-as-mcp transport failed during {method}") from exc
+            if not line:
+                raise McpProcessExited(f"rag-as-mcp exited during {method}")
+            try:
+                response = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise McpProtocolError("rag-as-mcp emitted non-JSON stdout") from exc
+            if response.get("id") != request_id:
+                raise McpProtocolError(f"unexpected response id during {method}")
+            if "error" in response:
+                error = response["error"]
+                raise McpProtocolError(error.get("message", str(error)))
+            result = response.get("result")
+            if not isinstance(result, dict):
+                raise McpProtocolError(f"missing object result during {method}")
+            return result
+
+    @classmethod
+    def _validate_capabilities(
+        cls, initialized: dict[str, Any], tools_result: dict[str, Any]
+    ) -> McpCapabilities:
+        server = initialized.get("serverInfo")
+        if not isinstance(server, dict) or not server.get("name") or not server.get("version"):
+            raise McpCapabilityError("initialize response lacks serverInfo name/version")
+        tools = tools_result.get("tools")
+        if not isinstance(tools, list):
+            raise McpCapabilityError("tools/list response lacks tools array")
+        query_tool = next((tool for tool in tools if tool.get("name") == cls.REQUIRED_TOOL), None)
+        if query_tool is None:
+            raise McpCapabilityError(f"required tool missing: {cls.REQUIRED_TOOL}")
+        schema = query_tool.get("inputSchema", {})
+        properties = schema.get("properties", {})
+        if not {"query", "top_k", "collection"}.issubset(properties):
+            raise McpCapabilityError("query_knowledge_hub schema lacks required properties")
+        if "query" not in schema.get("required", []):
+            raise McpCapabilityError("query_knowledge_hub.query must be required")
+        if properties["top_k"].get("maximum") != 50:
+            raise McpCapabilityError("query_knowledge_hub.top_k maximum must be 50")
+        return McpCapabilities(
+            str(server["name"]), str(server["version"]), tuple(str(t.get("name")) for t in tools)
+        )

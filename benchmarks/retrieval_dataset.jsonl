@@ -1,0 +1,5 @@
+{"id":"redis-oom","query":"What is the Redis OOM runbook?","relevant_document_ids":["redis-oom-runbook"]}
+{"id":"checkout-errors","query":"checkout service error rate spike runbook","relevant_document_ids":["checkout-error-runbook"]}
+{"id":"payment-timeout","query":"payment gateway timeout investigation","relevant_document_ids":["payment-gateway-timeout-runbook"]}
+{"id":"lambda-timeout","query":"lambda timeout cold start mitigation","relevant_document_ids":["lambda-timeout-runbook"]}
+{"id":"postgres-pool","query":"postgres connection pool exhausted","relevant_document_ids":["postgres-connection-pool-runbook"]}

@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from types import SimpleNamespace
 
-from agents.consultant.knowledge_retriever import KnowledgeRetriever
+from agents.consultant.retrieval import LocalRunbookRetriever
 from app import app
 from api import chat_handler
 
@@ -49,15 +49,12 @@ def test_knowledge_mutation_requires_admin_token():
 
 @pytest.mark.asyncio
 async def test_local_runbook_fallback_returns_grounded_source(monkeypatch):
-    monkeypatch.setenv("RAG_MODE", "local")
-    retriever = KnowledgeRetriever()
-    await retriever.initialize()
-
-    docs = await retriever.search_knowledge("Redis OOM memory", top_k=2)
+    retriever = LocalRunbookRetriever()
+    docs = await retriever.search("Redis OOM memory", top_k=2)
 
     assert docs
-    assert docs[0]["source"] == "redis-oom-runbook"
-    assert "MEMORY DOCTOR" in docs[0]["content"]
+    assert docs[0].document_id == "redis-oom-runbook"
+    assert "MEMORY DOCTOR" in docs[0].content
 
 
 def test_agent_graphs_are_disposable_per_request():

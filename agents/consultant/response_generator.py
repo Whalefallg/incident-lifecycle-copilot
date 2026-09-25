@@ -4,8 +4,10 @@
 负责生成AI响应内容
 """
 
-from typing import Dict, Any, AsyncGenerator
+from typing import AsyncGenerator
+
 from langchain_core.language_models.chat_models import BaseChatModel
+
 from .prompt_builder import PromptBuilder
 
 
@@ -22,10 +24,12 @@ class ResponseGenerator:
             prompt = self.prompt_builder.build_consultation_prompt(user_input, knowledge_docs)
             response = await self.llm.ainvoke([{"role": "user", "content": prompt}])
             return response.content
-        except Exception as e:
-            return f"抱歉，处理您的问题时出现了错误。请稍后再试。"
+        except Exception:
+            return "抱歉，处理您的问题时出现了错误。请稍后再试。"
 
-    async def generate_response_stream(self, user_input: str, knowledge_docs: list) -> AsyncGenerator[str, None]:
+    async def generate_response_stream(
+        self, user_input: str, knowledge_docs: list
+    ) -> AsyncGenerator[str, None]:
         """生成流式响应"""
         try:
             prompt = self.prompt_builder.build_consultation_prompt(user_input, knowledge_docs)
@@ -45,4 +49,6 @@ class ResponseGenerator:
 
     def create_unrelated_message(self) -> str:
         """创建与咨询无关的回复消息"""
-        return "[THOUGHT][咨询机器人] 咨询机器人：这个问题不是咨询类问题，我将转回给归类机器人处理。"
+        return (
+            "[THOUGHT][咨询机器人] 咨询机器人：这个问题不是咨询类问题，我将转回给归类机器人处理。"
+        )
