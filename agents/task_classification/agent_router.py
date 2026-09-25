@@ -73,9 +73,8 @@ class AgentRouter:
         self.state_manager.transition_to_runbook_lookup()
         yield "[THOUGHT][Triage Router] Knowledge query detected — routing to Runbook Agent for RAG retrieval."
         try:
-            async with self.consultant_agent as agent:
-                async for token in agent.consult_stream(task):
-                    yield token
+            async for token in self.consultant_agent.consult_stream(task):
+                yield token
             if self.event_sink:
                 from conversation.events import IncidentEventType
                 self.event_sink(
@@ -157,9 +156,8 @@ class AgentRouter:
             async for token in self.escalation_agent.run_stream(user_input=task):
                 yield token
         elif self.state_manager.is_in_runbook_flow():
-            async with self.consultant_agent as agent:
-                async for token in agent.consult_stream(task):
-                    yield token
+            async for token in self.consultant_agent.consult_stream(task):
+                yield token
         elif self.state_manager.is_in_comms_flow():
             async for token in self.communication_agent.draft_stream(task):
                 yield token

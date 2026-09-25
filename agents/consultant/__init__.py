@@ -14,11 +14,15 @@ from .prompt_builder import PromptBuilder
 from .consultation_classifier import ConsultationClassifier
 from .response_generator import ResponseGenerator
 from .consultation_processor import ConsultationProcessor
+from .retrieval import LocalRunbookRetriever, RetrievalResult, Retriever
 
 __all__ = [
     'KnowledgeRetriever',
     'PromptBuilder',
     'ConsultationClassifier',
     'ResponseGenerator',
-    'ConsultationProcessor'
+    'ConsultationProcessor',
+    'LocalRunbookRetriever',
+    'RetrievalResult',
+    'Retriever',
 ]

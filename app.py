@@ -2,7 +2,7 @@
 FastAPI application entry point.
 
 Configures middleware, registers routes, and runs startup checks.
-RAG retrieval is now handled by the Modular RAG MCP Server (subprocess);
+RAG retrieval is handled by the configured Retriever (`rag-as-mcp` or local baseline);
 see agents/consultant/mcp_rag_client.py for the client implementation.
 
 Production enhancements:
@@ -35,33 +35,14 @@ async def initialize_system():
     """
     System startup initialization.
 
-    RAG is now handled by the Modular RAG MCP Server (subprocess).
-    The MCP Server subprocess is started lazily on first ConsultantAgent
-    __aenter__ call (i.e., the first runbook query).  Here we only verify
-    the server path is configured so problems surface early.
+    Initialize the worker-level retrieval backend. In MCP mode this starts,
+    initializes, and validates one reusable rag-as-mcp subprocess.
 
     Production: Initialize Redis connection pool.
     """
-    from pathlib import Path
-
     logger.info("🚀 Initializing Incident Lifecycle Copilot...")
-
-    rag_mode = os.getenv("RAG_MODE", "auto").lower()
-    rag_path = Path(
-        os.environ.get(
-            "RAG_MCP_SERVER_PATH",
-            str(Path.home() / "Projects" / "MODULAR-RAG-MCP-SERVER"),
-        )
-    )
-    if rag_mode == "local":
-        logger.info("Bundled runbook retrieval enabled")
-    elif not rag_path.exists():
-        if rag_mode == "mcp":
-            logger.warning("RAG_MCP_SERVER_PATH not found: %s", rag_path)
-        else:
-            logger.info("MCP RAG unavailable; bundled runbooks will be used")
-    else:
-        logger.info("RAG MCP Server path verified: %s", rag_path)
+    from agents.consultant.retrieval_runtime import initialize_retrieval
+    await initialize_retrieval()
 
     redis_enabled = os.getenv("REDIS_STATE_ENABLED", "false").lower() == "true"
     if redis_enabled:
@@ -77,6 +58,8 @@ async def initialize_system():
 async def shutdown_system():
     """Cleanup on shutdown"""
     logger.info("🛑 Shutting down system...")
+    from agents.consultant.retrieval_runtime import shutdown_retrieval
+    await shutdown_retrieval()
     await RedisClient.close()
     logger.info("✅ Cleanup complete")
 

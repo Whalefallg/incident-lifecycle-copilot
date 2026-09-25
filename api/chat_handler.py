@@ -127,8 +127,9 @@ class SessionAgents:
 
 
 def _build_session_agents(session_id: str) -> SessionAgents:
+    from agents.consultant.retrieval_runtime import get_retriever
     escalation_agent = EscalationAgent(session_id=session_id)
-    consultant_agent = ConsultantAgent(session_id=session_id)
+    consultant_agent = ConsultantAgent(session_id=session_id, retriever=get_retriever())
     communication_agent = CommunicationAgent(session_id=session_id)
     postmortem_agent = PostmortemAgent(session_id=session_id)
     task_agent = TaskClassificationAgent(

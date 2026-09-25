@@ -2,7 +2,7 @@ import uuid
 import logging
 from config.model_provider import create_chat_model
 from .consultant import (
-    KnowledgeRetriever,
+    Retriever,
     ConsultationClassifier,
     ResponseGenerator,
     ConsultationProcessor
@@ -15,39 +15,31 @@ class ConsultantAgent:
     """
     Runbook & Incident Memory Agent.
 
-    Retrieval is delegated to the Modular RAG MCP Server via McpRagClient
-    (subprocess stdio transport).  On __aenter__ the MCP Server subprocess
-    is started; on __aexit__ it is stopped cleanly.
+    Retrieval is injected as a backend-neutral Retriever. The application,
+    not this request-scoped Agent, owns any MCP subprocess lifecycle.
     """
 
-    def __init__(self, session_id=None):
+    def __init__(self, session_id=None, retriever: Retriever | None = None):
         self.session_id = session_id or str(uuid.uuid4())
         self.shared_state = None
         self.unrelated_callback = None
 
         self.llm = self._initialize_llm()
 
-        self.knowledge_retriever = KnowledgeRetriever()
+        if retriever is None:
+            from .consultant.retrieval_runtime import get_retriever
+            retriever = get_retriever()
+        self.retriever = retriever
         self.consultation_classifier = ConsultationClassifier(self.llm)
         self.response_generator = ResponseGenerator(self.llm)
         self.consultation_processor = ConsultationProcessor(
-            self.knowledge_retriever,
+            self.retriever,
             self.consultation_classifier,
             self.response_generator,
         )
 
     def _initialize_llm(self):
         return create_chat_model(temperature=0.3)
-
-    async def __aenter__(self):
-        """Start the Modular RAG MCP Server subprocess."""
-        await self.knowledge_retriever.initialize()
-        logger.info("ConsultantAgent ready (Modular RAG MCP Server mode)")
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        """Stop the MCP Server subprocess cleanly."""
-        await self.knowledge_retriever.close()
 
     def set_shared_state(self, shared_state):
         """设置共享状态"""
