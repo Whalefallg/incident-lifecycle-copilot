@@ -18,6 +18,7 @@ router = APIRouter(tags=["Web界面"])
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     state: str | None = None
+    request_id: str | None = None
 
 @router.get("/", response_class=HTMLResponse, summary="主页")
 async def read_root(request: Request):
@@ -29,7 +30,10 @@ async def chat_stream_endpoint(chat: ChatRequest, request: Request):
     """处理流式聊天请求"""
     async def token_generator():
         async for token in ProcessUserInput_stream(
-            chat.message, session_id=request.state.session_id
+            chat.message,
+            state=chat.state,
+            session_id=request.state.session_id,
+            request_id=chat.request_id or request.headers.get("X-Request-ID"),
         ):
             yield token
     return StreamingResponse(token_generator(), media_type="text/plain")
@@ -39,7 +43,10 @@ async def chat_endpoint(chat: ChatRequest, request: Request):
     """兼容性聊天接口，建议使用/chat/stream"""
     async def token_generator():
         async for token in ProcessUserInput_stream(
-            chat.message, session_id=request.state.session_id
+            chat.message,
+            state=chat.state,
+            session_id=request.state.session_id,
+            request_id=chat.request_id or request.headers.get("X-Request-ID"),
         ):
             yield token
     return StreamingResponse(token_generator(), media_type="text/plain")
@@ -49,11 +56,6 @@ async def chat_endpoint(chat: ChatRequest, request: Request):
 async def reset_chat_session(request: Request):
     await reset_session(request.state.session_id)
     return {"status": "ok", "message": "Incident session reset"}
-
-@router.get("/user_behavior", response_class=HTMLResponse, summary="用户行为分析页面")
-async def user_behavior_page(request: Request):
-    """Triage pattern analysis page"""
-    return templates.TemplateResponse("user_behavior_analysis.html", {"request": request})
 
 @router.get("/knowledge", response_class=HTMLResponse, summary="知识库管理页面")
 async def knowledge_page(request: Request):
@@ -75,8 +77,3 @@ async def knowledge_page(request: Request):
             "categories": [],
             "error": str(e)
         })
-
-@router.get("/user_behavior_analysis", response_class=HTMLResponse, summary="用户行为分析页面")
-async def user_behavior_analysis_page(request: Request):
-    """Triage pattern analysis page"""
-    return templates.TemplateResponse("user_behavior_analysis.html", {"request": request})

@@ -62,9 +62,6 @@ class ClassificationProcessor:
                     async for token in self.agent_router.route_to_postmortem(task):
                         yield token
 
-                elif category == "statistics":
-                    yield "[REPLY][Triage Router] Incident metrics queries are not yet implemented. Coming soon."
-
                 else:
                     async for token in self.agent_router.handle_unsupported_task(category):
                         yield token
@@ -128,14 +125,11 @@ class ClassificationProcessor:
                 elif category == "postmortem":
                     return "Postmortem agent not yet implemented in sync mode."
 
-                elif category == "statistics":
-                    return "Incident metrics queries not yet implemented."
-
                 else:
                     return (
                         "This request is outside the scope of the Incident Lifecycle Copilot. "
                         "I can help with: incident escalation, runbook lookups, status updates, "
-                        "postmortem generation, and incident metrics."
+                        "and postmortem generation."
                     )
 
             else:

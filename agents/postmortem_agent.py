@@ -1,11 +1,8 @@
 """
-PostmortemAgent — generates post-incident review documents from session history.
+PostmortemAgent — generates post-incident review drafts from recorded events.
 
-This is the deepest component of the Incident Lifecycle Copilot. It reconstructs
-incident timelines from local conversation logs and produces structured postmortem
-documents without requiring external integrations (Slack, PagerDuty, etc.).
-
-Key capability: timeline extraction from pure dialogue history.
+The runtime path consumes ConversationSnapshot.events. Transcript keyword
+extraction is retained only for explicit legacy imports.
 
 Production features:
 - Model routing: uses complex-tier model for postmortem generation
@@ -14,27 +11,30 @@ Production features:
 
 import uuid
 import os
-from typing import List, Dict, Any
+from typing import Dict, Any
 from config.model_provider import create_chat_model
-from .postmortem import TimelineExtractor, PostmortemGenerator, PostmortemBuilder
+from conversation.events import IncidentEvent, build_timeline
+from conversation.models import EscalationContext
+from knowledge.approval import KnowledgeDraft
+from .postmortem import PostmortemGenerator, PostmortemBuilder
 
 
 class PostmortemAgent:
     """
-    Postmortem Agent — reconstructs incident timeline from session history
-    and generates structured post-incident review documents.
+    Generates a draft from the factual event ledger. It never ingests knowledge.
     """
 
     def __init__(self, session_id=None, knowledge_service=None):
         self.session_id = session_id or str(uuid.uuid4())
-        self.knowledge_service = knowledge_service
         self.llm = self._initialize_llm()
-
-        self.extractor = TimelineExtractor()
         self.generator = PostmortemGenerator(self.llm)
         self.builder = PostmortemBuilder(self.generator)
 
         self.session_messages = []
+        self.incident_events: list[IncidentEvent] = []
+        self.escalation_context = EscalationContext()
+        self.generated_draft: KnowledgeDraft | None = None
+        self.next_draft_version = 1
 
         self._cache_enabled = os.getenv("SEMANTIC_CACHE_ENABLED", "false").lower() == "true"
 
@@ -86,19 +86,21 @@ class PostmortemAgent:
                     context={"agent": "postmortem", "session_id": self.session_id}
                 )
                 if cached:
+                    self._capture_draft(cached)
                     return cached
             except Exception:
                 pass
 
-        report_chunks = []
+        report_chunks: list[str] = []
         async for token in self.builder.build_stream(
             prompt,
-            self.session_messages,
-            self.knowledge_service,
+            self.incident_events,
+            self.escalation_context,
         ):
             report_chunks.append(token)
 
         report = "".join(report_chunks)
+        self._capture_draft(self._draft_content(report))
 
         if self._cache_enabled:
             try:
@@ -131,6 +133,7 @@ class PostmortemAgent:
                     context={"agent": "postmortem", "session_id": self.session_id}
                 )
                 if cached:
+                    self._capture_draft(self._draft_content(cached))
                     for char in cached:
                         yield char
                     return
@@ -140,11 +143,13 @@ class PostmortemAgent:
         collected = []
         async for token in self.builder.build_stream(
             user_input,
-            self.session_messages,
-            self.knowledge_service,
+            self.incident_events,
+            self.escalation_context,
         ):
             collected.append(token)
             yield token
+
+        self._capture_draft(self._draft_content("".join(collected)))
 
         if self._cache_enabled:
             try:
@@ -158,10 +163,25 @@ class PostmortemAgent:
                 pass
 
     def get_session_summary(self) -> Dict[str, Any]:
-        """Return metadata about the current session for debugging."""
-        metadata = self.extractor.extract_incident_metadata(self.session_messages)
+        """Return factual ledger metadata for debugging."""
         return {
             "session_id": self.session_id,
-            "message_count": len(self.session_messages),
-            "metadata": metadata,
+            "event_count": len(self.incident_events),
+            "event_types": [event.type.value for event in build_timeline(self.incident_events)],
+            "service": self.escalation_context.service,
+            "severity": self.escalation_context.severity,
         }
+
+    def _capture_draft(self, content: str) -> None:
+        if not content or not self.incident_events:
+            return
+        self.generated_draft = KnowledgeDraft.create(
+            source_incident_id=self.session_id,
+            version=self.next_draft_version,
+            content=content,
+        )
+
+    @staticmethod
+    def _draft_content(output: str) -> str:
+        marker = "[REPLY][Postmortem Agent]\n"
+        return output.split(marker, 1)[1].strip() if marker in output else output.strip()

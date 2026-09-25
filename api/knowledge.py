@@ -20,6 +20,10 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
 
 
+class DraftDecision(BaseModel):
+    actor: str = Field(min_length=1, max_length=200)
+
+
 @router.get("/")
 async def get_all_knowledge():
     """获取所有知识条目"""
@@ -45,6 +49,78 @@ async def get_all_knowledge():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取知识库失败: {str(e)}")
+
+
+@router.get("/drafts/{session_id}")
+async def list_postmortem_drafts(session_id: str):
+    """List persisted postmortem drafts and their approval audit fields."""
+    from api.chat_handler import get_conversation_repository
+
+    snapshot = await (await get_conversation_repository()).load(session_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"drafts": snapshot.postmortem_context.drafts}
+
+
+async def _transition_draft(session_id: str, draft_id: str, action: str, actor: str):
+    from api.chat_handler import get_conversation_repository
+    from conversation.models import utc_now
+    from conversation.repository import ConcurrentConversationUpdate
+    from knowledge.approval import KnowledgeDraftStatus
+
+    repository = await get_conversation_repository()
+    for attempt in range(3):
+        snapshot = await repository.load(session_id)
+        if not snapshot:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        draft = next(
+            (item for item in snapshot.postmortem_context.drafts if item.draft_id == draft_id),
+            None,
+        )
+        if not draft:
+            raise HTTPException(status_code=404, detail="Draft not found")
+
+        if action == "review" and draft.status == KnowledgeDraftStatus.DRAFT:
+            draft.status = KnowledgeDraftStatus.REVIEWED
+            draft.reviewed_by = actor
+            draft.reviewed_at = utc_now()
+        elif action == "approve" and draft.status == KnowledgeDraftStatus.REVIEWED:
+            draft.status = KnowledgeDraftStatus.APPROVED
+            draft.approved_by = actor
+            draft.approved_at = utc_now()
+        elif action == "reject" and draft.status in {
+            KnowledgeDraftStatus.DRAFT,
+            KnowledgeDraftStatus.REVIEWED,
+        }:
+            draft.status = KnowledgeDraftStatus.REJECTED
+            draft.reviewed_by = actor
+            draft.reviewed_at = utc_now()
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Invalid {action} transition from {draft.status.value}",
+            )
+        try:
+            await repository.save(snapshot, snapshot.revision)
+            return draft
+        except ConcurrentConversationUpdate:
+            if attempt == 2:
+                raise HTTPException(status_code=409, detail="Concurrent draft update")
+
+
+@router.post("/drafts/{session_id}/{draft_id}/review", dependencies=[Depends(require_admin)])
+async def review_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
+    return await _transition_draft(session_id, draft_id, "review", decision.actor)
+
+
+@router.post("/drafts/{session_id}/{draft_id}/approve", dependencies=[Depends(require_admin)])
+async def approve_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
+    return await _transition_draft(session_id, draft_id, "approve", decision.actor)
+
+
+@router.post("/drafts/{session_id}/{draft_id}/reject", dependencies=[Depends(require_admin)])
+async def reject_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
+    return await _transition_draft(session_id, draft_id, "reject", decision.actor)
 
 
 @router.get("/{knowledge_id}")

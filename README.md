@@ -6,7 +6,14 @@ A Multi-Agent AI system for internal support and site reliability engineering te
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Demo-ready architecture**: session-isolated agent workflows, local or MCP-backed runbook retrieval, optional Redis state, semantic caching, model routing, and Celery workers. Concrete concurrency and cost claims are intentionally left to reproducible benchmark reports.
+## Design Goals
+
+- Make the complete conversation snapshot the only recoverable source of truth.
+- Keep workflow state separate from typed incident business context.
+- Treat agents as disposable computation units that can be rebuilt on every request.
+- Support atomic multi-worker recovery and stable request idempotency.
+- Generate postmortems only from recorded, typed incident events.
+- Require explicit human review and approval before knowledge ingestion.
 
 ### What the demo shows
 
@@ -41,7 +48,7 @@ Each step is high-stakes, time-sensitive, and largely manual. This project addre
 
 - **Semantic Caching**: Optional vector similarity-based LLM response caching with measurable hit-rate statistics
 - **Model Routing**: Optional complexity-based model selection with usage statistics
-- **Redis State Store**: Optional state-machine persistence; full multi-worker conversation restoration remains future work
+- **Redis State Store**: Optional full-snapshot persistence with atomic revision checks
 - **Celery Async Queue**: Optional workers for long-running Postmortem generation and vector DB writes
 - **Public Demo Guardrails**: Per-browser sessions, input bounds, HTML escaping, rate limiting, and protected admin mutations
 
@@ -67,7 +74,7 @@ Five-layer separation of concerns — no layer references a layer above it:
 ├─────────────────────────────────────────────────────────┤
 │  API Layer      │  FastAPI streaming endpoints           │
 ├─────────────────────────────────────────────────────────┤
-│  Agent Layer    │  6 specialist agents (see below)       │
+│  Agent Layer    │  5 specialist agents (see below)       │
 ├─────────────────────────────────────────────────────────┤
 │  Service Layer  │  MCP client, messaging and utility code │
 ├─────────────────────────────────────────────────────────┤
@@ -75,7 +82,7 @@ Five-layer separation of concerns — no layer references a layer above it:
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Six-Agent Architecture
+### Five-Agent Architecture
 
 ```
 Alert / Engineer Input
@@ -93,14 +100,6 @@ Alert / Engineer Input
 │ation │ │Agent  │ │Agent     │ │Agent     │
 │Agent │ │       │ │          │ │          │
 └──┬───┘ └───┬───┘ └────┬─────┘ └────┬─────┘
-   │         │          │             │
-   └────┬────┘          │             │
-        │               │             │
-        ▼               ▼             ▼
-┌──────────────────────────────────────────┐
-│  IncidentPatternAgent  (UserBehaviorAgent)│
-│  Triage pattern learning + feedback loop  │
-└──────────────────────────────────────────┘
 ```
 
 | Agent | Implementation | Incident Ops Role |
@@ -110,13 +109,14 @@ Alert / Engineer Input
 | RunbookAgent | `ConsultantAgent` | RAG over runbooks + past incidents |
 | CommunicationAgent | `CommunicationAgent` | 3-audience status update generation |
 | PostmortemAgent | `PostmortemAgent` | Timeline reconstruction + RCA draft |
-| PatternAgent | `UserBehaviorAgent` | Triage pattern learning + feedback |
 
 ---
 
 ## State Machine & Suspend / Resume
 
-The Triage Router uses a deterministic FSM (`StateEnum`) to manage multi-turn context. When an agent detects an off-topic request mid-flow, it **suspends** the current context onto a stack rather than discarding it, handles the inserted task, then **automatically resumes** the original flow.
+The Triage Router uses a deterministic FSM (`StateEnum`) to manage multi-turn context. When an agent detects an off-topic request mid-flow, it **suspends** the current context onto a stack rather than discarding it. The complete `ConversationSnapshot`—FSM state, suspend stack, typed escalation context, messages, events, drafts, revisions, and request results—is the recoverable source of truth.
+
+With `REDIS_STATE_ENABLED=true`, Redis stores the complete snapshot and uses atomic compare-and-set saves. Clients may supply `request_id` or `X-Request-ID`; reuse with the same canonical payload returns the original result, while reuse with a different payload raises `IdempotencyKeyMismatch`.
 
 ```
 Engineer: "checkout P1, affecting us-east-1 payments"
@@ -151,8 +151,8 @@ Suspend stack is capped at depth 2 (`MAX_SUSPEND_DEPTH`) to prevent runaway nest
 ② Triage            →  EscalationAgent collects impact + dispatches on-call
 ③ Investigation     →  RunbookAgent retrieves relevant runbooks via RAG
 ④ Status updates    →  CommunicationAgent drafts 3 versions (eng / support / exec)
-⑤ Resolution        →  PostmortemAgent reconstructs timeline from session history
-⑥ Knowledge loop    →  PostmortemAgent writes back to runbook KB for future RAG
+⑤ Resolution        →  PostmortemAgent builds a timeline from recorded IncidentEvents
+⑥ Knowledge loop    →  Draft → Review → Approval → explicit ingestion adapter
 ```
 
 ---
@@ -204,7 +204,7 @@ The `PostmortemAgent` reconstructs incident timelines without requiring external
 3. **`PostmortemGenerator`** — LLM prompt with structured incident data + timeline summary
 4. **Optional write-back hook** — `PostmortemBuilder` can write to an injected legacy knowledge service. The default Agent does not yet call an MCP ingest tool.
 
-The current runtime generates an RCA draft from in-memory session history. Persisting and ingesting that draft into the MCP knowledge base remains an explicit follow-up step.
+The runtime records typed `IncidentEvent` facts and generates versioned `KnowledgeDraft` objects. Drafts follow `DRAFT → REVIEWED → APPROVED → INGESTED`, with `REJECTED` as a terminal review outcome. Review and approval are explicit; no postmortem is automatically ingested into the MCP knowledge base.
 
 ---
 
@@ -468,7 +468,7 @@ Agent:  CommunicationAgent drafts executive summary with business impact
 **Postmortem generation:**
 ```
 You:    incident resolved, generate the postmortem
-Agent:  PostmortemAgent reconstructs timeline from session history → RCA document
+Agent:  PostmortemAgent builds the timeline from recorded events → review draft
 ```
 
 ---

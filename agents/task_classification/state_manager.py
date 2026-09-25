@@ -19,20 +19,16 @@ Suspend / Resume:
     nesting (e.g. runbook query mid-escalation that itself triggers another
     off-topic branch).
 
-Production Enhancement:
-    状态机现在支持 Redis 共享存储，实现 FastAPI 节点无状态化。
-    当 REDIS_STATE_ENABLED=true 时，状态自动持久化到 Redis。
+Persistence is deliberately outside this class.  A request coordinator hydrates
+the manager from a ConversationSnapshot and atomically saves the whole snapshot.
 """
 
 from config.constants import SharedState, StateEnum
-from typing import Any, Optional
-import os
-import logging
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+from conversation.models import ConversationSnapshot, EscalationContext
 
 MAX_SUSPEND_DEPTH = 2
-REDIS_STATE_ENABLED = os.getenv("REDIS_STATE_ENABLED", "false").lower() == "true"
 
 
 class SuspendedFrame:
@@ -53,11 +49,6 @@ class StateManager:
         self.state = shared_state or SharedState()
         self._suspend_stack: list[SuspendedFrame] = []
         self.session_id = session_id
-        self._redis_store = None
-
-        if REDIS_STATE_ENABLED and session_id:
-            from config.redis_config import redis_state_store
-            self._redis_store = redis_state_store
 
     def get_current_state(self) -> StateEnum:
         return self.state.value or StateEnum.CLASSIFY
@@ -67,53 +58,33 @@ class StateManager:
         self.state.value = new_state
         print(f"[StateManager] {old_state} → {new_state}")
 
-        if REDIS_STATE_ENABLED and self._redis_store and self.session_id:
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self._persist_to_redis())
-                else:
-                    loop.run_until_complete(self._persist_to_redis())
-            except Exception as e:
-                logger.error(f"Failed to persist state to Redis: {e}")
+    def hydrate(self, snapshot: ConversationSnapshot) -> None:
+        """Load workflow-only state from the request's authoritative snapshot."""
+        self.state.value = snapshot.current_state
+        self._suspend_stack = [
+            SuspendedFrame(
+                frame.state,
+                frame.escalation_context.to_legacy_dict()
+                if frame.escalation_context
+                else {},
+            )
+            for frame in snapshot.suspend_stack
+        ]
 
-    async def _persist_to_redis(self):
-        """持久化状态到 Redis"""
-        if not self._redis_store or not self.session_id:
-            return
+    def apply_to_snapshot(self, snapshot: ConversationSnapshot) -> None:
+        """Copy workflow-only state back without persisting it independently."""
+        from conversation.models import SuspendedFrame as SnapshotFrame
 
-        state_data = {
-            "current_state": self.state.value.value,
-            "suspend_stack": [
-                {"state": f.state.value, "snapshot": f.agent_snapshot}
-                for f in self._suspend_stack
-            ],
-        }
-        await self._redis_store.save_state(self.session_id, state_data)
-
-    async def load_from_redis(self) -> bool:
-        """从 Redis 恢复状态"""
-        if not REDIS_STATE_ENABLED or not self._redis_store or not self.session_id:
-            return False
-
-        try:
-            state_data = await self._redis_store.load_state(self.session_id)
-            if not state_data:
-                return False
-
-            self.state.value = StateEnum(state_data["current_state"])
-
-            self._suspend_stack = [
-                SuspendedFrame(StateEnum(f["state"]), f["snapshot"])
-                for f in state_data.get("suspend_stack", [])
-            ]
-
-            logger.info(f"State restored from Redis: session={self.session_id}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to load state from Redis: {e}")
-            return False
+        snapshot.current_state = self.get_current_state()
+        snapshot.suspend_stack = [
+            SnapshotFrame(
+                state=frame.state,
+                escalation_context=EscalationContext.from_legacy_dict(
+                    frame.agent_snapshot
+                ),
+            )
+            for frame in self._suspend_stack
+        ]
 
     def reset_to_classify(self) -> None:
         self.set_state(StateEnum.CLASSIFY)
@@ -140,18 +111,6 @@ class StateManager:
         self._suspend_stack.append(frame)
         print(f"[StateManager] Suspended {frame.state} → stack depth {len(self._suspend_stack)}")
         self.set_state(StateEnum.CLASSIFY)
-
-        if REDIS_STATE_ENABLED and self._redis_store and self.session_id:
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self._persist_to_redis())
-                else:
-                    loop.run_until_complete(self._persist_to_redis())
-            except Exception as e:
-                logger.error(f"Failed to persist suspend stack to Redis: {e}")
-
         return True
 
     def resume_suspended(self) -> Optional[SuspendedFrame]:

@@ -25,6 +25,7 @@ class EscalationAgent:
         self.unrelated_callback = unrelated_callback  # legacy fallback
         self.suspend_callback = suspend_callback       # preferred: suspend + resume
         self.state = None
+        self.event_sink = None
 
         self.llm = create_chat_model(temperature=0)
 
@@ -38,17 +39,9 @@ class EscalationAgent:
             self.llm,
         )
 
-        self.chats_by_session_id = {}
-        self.chat_history = self._get_chat_history(self.session_id)
+        self.chat_history = InMemoryChatMessageHistory()
 
         self.reset()
-
-    def _get_chat_history(self, session_id: str) -> InMemoryChatMessageHistory:
-        chat_history = self.chats_by_session_id.get(session_id)
-        if chat_history is None:
-            chat_history = InMemoryChatMessageHistory()
-            self.chats_by_session_id[session_id] = chat_history
-        return chat_history
 
     def reset(self):
         """Reset incident context and conversation state."""
@@ -62,6 +55,7 @@ class EscalationAgent:
             "oncall_preference": None,
         }
         self.finished = False
+        self.workflow_complete = False
         self.chat_history.clear()
 
     def set_shared_state(self, shared_state):
@@ -82,6 +76,7 @@ class EscalationAgent:
 
         try:
             data = self.input_parser.parse_data(ai_content)
+            self._record_context_events(data)
             self.finished = self.incident_processor.update_history_from_data(
                 self.incident_history, data
             )
@@ -100,10 +95,6 @@ class EscalationAgent:
                     async for token in self.suspend_callback(user_input, snapshot):
                         yield token
                 else:
-                    # Legacy fallback: discard context and reroute
-                    if self.state:
-                        from config.constants import StateEnum
-                        self.state.value = StateEnum.CLASSIFY
                     async for token in self.incident_processor.handle_unrelated_request(
                         user_input, self.unrelated_callback, self.state
                     ):
@@ -136,11 +127,28 @@ class EscalationAgent:
             yield self.message_builder.create_parse_error_message()
 
     def _reset_state_after_escalation(self):
-        """Reset state after escalation is dispatched."""
-        self.reset()
-        if self.state:
-            from config.constants import StateEnum
-            self.state.value = StateEnum.CLASSIFY
+        """Mark the workflow complete without discarding incident facts."""
+        self.finished = False
+        self.workflow_complete = True
+
+    def _record_context_events(self, data: dict) -> None:
+        if not self.event_sink:
+            return
+        from conversation.events import IncidentEventType
+
+        for field, event_type in (
+            ("severity", IncidentEventType.SEVERITY_CLASSIFIED),
+            ("impact_scope", IncidentEventType.IMPACT_UPDATED),
+            ("symptoms", IncidentEventType.SYMPTOM_RECORDED),
+        ):
+            value = data.get(field)
+            if value and value != "unknown":
+                self.event_sink(
+                    event_type,
+                    actor="EscalationAgent",
+                    source="incident_parser",
+                    payload={field: value},
+                )
 
     def _build_snapshot(self) -> dict:
         """Serialise current incident_history for the suspend stack."""
