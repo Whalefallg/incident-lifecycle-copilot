@@ -114,7 +114,9 @@ Alert / Engineer Input
 
 ## State Machine & Suspend / Resume
 
-The Triage Router uses a deterministic FSM (`StateEnum`) to manage multi-turn context. When an agent detects an off-topic request mid-flow, it **suspends** the current context onto a stack rather than discarding it, handles the inserted task, then **automatically resumes** the original flow.
+The Triage Router uses a deterministic FSM (`StateEnum`) to manage multi-turn context. When an agent detects an off-topic request mid-flow, it **suspends** the current context onto a stack rather than discarding it. The complete `ConversationSnapshot`—FSM state, suspend stack, typed escalation context, messages, events, drafts, revisions, and request results—is the recoverable source of truth.
+
+With `REDIS_STATE_ENABLED=true`, Redis stores the complete snapshot and uses atomic compare-and-set saves. Clients may supply `request_id` or `X-Request-ID`; reuse with the same canonical payload returns the original result, while reuse with a different payload raises `IdempotencyKeyMismatch`.
 
 ```
 Engineer: "checkout P1, affecting us-east-1 payments"
@@ -149,8 +151,8 @@ Suspend stack is capped at depth 2 (`MAX_SUSPEND_DEPTH`) to prevent runaway nest
 ② Triage            →  EscalationAgent collects impact + dispatches on-call
 ③ Investigation     →  RunbookAgent retrieves relevant runbooks via RAG
 ④ Status updates    →  CommunicationAgent drafts 3 versions (eng / support / exec)
-⑤ Resolution        →  PostmortemAgent reconstructs timeline from session history
-⑥ Knowledge loop    →  PostmortemAgent writes back to runbook KB for future RAG
+⑤ Resolution        →  PostmortemAgent builds a timeline from recorded IncidentEvents
+⑥ Knowledge loop    →  Draft → Review → Approval → explicit ingestion adapter
 ```
 
 ---
@@ -202,7 +204,7 @@ The `PostmortemAgent` reconstructs incident timelines without requiring external
 3. **`PostmortemGenerator`** — LLM prompt with structured incident data + timeline summary
 4. **Optional write-back hook** — `PostmortemBuilder` can write to an injected legacy knowledge service. The default Agent does not yet call an MCP ingest tool.
 
-The current runtime generates an RCA draft from in-memory session history. Persisting and ingesting that draft into the MCP knowledge base remains an explicit follow-up step.
+The runtime records typed `IncidentEvent` facts and generates versioned `KnowledgeDraft` objects. Drafts follow `DRAFT → REVIEWED → APPROVED → INGESTED`, with `REJECTED` as a terminal review outcome. Review and approval are explicit; no postmortem is automatically ingested into the MCP knowledge base.
 
 ---
 
@@ -466,7 +468,7 @@ Agent:  CommunicationAgent drafts executive summary with business impact
 **Postmortem generation:**
 ```
 You:    incident resolved, generate the postmortem
-Agent:  PostmortemAgent reconstructs timeline from session history → RCA document
+Agent:  PostmortemAgent builds the timeline from recorded events → review draft
 ```
 
 ---
