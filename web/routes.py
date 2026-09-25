@@ -50,11 +50,6 @@ async def reset_chat_session(request: Request):
     await reset_session(request.state.session_id)
     return {"status": "ok", "message": "Incident session reset"}
 
-@router.get("/user_behavior", response_class=HTMLResponse, summary="用户行为分析页面")
-async def user_behavior_page(request: Request):
-    """Triage pattern analysis page"""
-    return templates.TemplateResponse("user_behavior_analysis.html", {"request": request})
-
 @router.get("/knowledge", response_class=HTMLResponse, summary="知识库管理页面")
 async def knowledge_page(request: Request):
     """Runbook & postmortem knowledge base management page"""
@@ -75,8 +70,3 @@ async def knowledge_page(request: Request):
             "categories": [],
             "error": str(e)
         })
-
-@router.get("/user_behavior_analysis", response_class=HTMLResponse, summary="用户行为分析页面")
-async def user_behavior_analysis_page(request: Request):
-    """Triage pattern analysis page"""
-    return templates.TemplateResponse("user_behavior_analysis.html", {"request": request})

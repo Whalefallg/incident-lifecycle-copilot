@@ -34,20 +34,6 @@ class ConsultationResponse(BaseModel):
     category: Optional[str] = None
 
 
-# 用户行为相关模型
-class UserBehaviorRequest(BaseModel):
-    user_id: str
-    action: str
-    context: Optional[Dict[str, Any]] = None
-
-
-class UserBehaviorResponse(BaseModel):
-    user_id: str
-    action: str
-    timestamp: datetime
-    context: Optional[Dict[str, Any]] = None
-
-
 # 任务分类相关模型
 class TaskClassificationRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)

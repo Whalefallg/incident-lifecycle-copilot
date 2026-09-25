@@ -7,7 +7,6 @@ Categories:
     query         — runbook lookup or historical incident search
     comms_update  — request to draft a stakeholder status update
     postmortem    — incident resolved; generate postmortem draft
-    statistics    — incident metrics query (MTTR, P1 counts, etc.)
     other         — unrelated input
 """
 
@@ -19,7 +18,7 @@ class TaskClassifier:
     """LLM-powered incident triage classifier."""
 
     VALID_CATEGORIES = {
-        'escalation', 'query', 'comms_update', 'postmortem', 'statistics', 'other'
+        'escalation', 'query', 'comms_update', 'postmortem', 'other'
     }
 
     CATEGORY_DESCRIPTIONS = {
@@ -27,7 +26,6 @@ class TaskClassifier:
         'query':        'Runbook or historical incident lookup via RAG',
         'comms_update': 'Draft stakeholder status update (engineer / support / executive)',
         'postmortem':   'Incident resolved — generate postmortem draft from session history',
-        'statistics':   'Incident metrics query (MTTR, weekly P1 count, alert trends)',
         'other':        'Out-of-scope request',
     }
 
@@ -57,9 +55,6 @@ class TaskClassifier:
                 "  postmortem    — The incident has been resolved and the engineer wants a postmortem "
                 "document generated from the conversation history. Examples: 'the incident is resolved, "
                 "write the postmortem', 'generate post-incident report', 'incident closed, create RCA'.\n"
-                "  statistics    — A query about aggregate incident metrics or trends. Examples: "
-                "'how many P1s this week?', 'what is our MTTR for checkout incidents?', "
-                "'show alert frequency for redis-memory-high'.\n"
                 "  other         — Anything not covered above.\n\n"
                 "Rules:\n"
                 "- Output ONLY the single category name in lowercase. No explanation, no punctuation.\n"
@@ -69,7 +64,6 @@ class TaskClassifier:
                 "  Input: 'what happened last time redis ran out of memory?'         → query\n"
                 "  Input: 'write a summary for the VP'                              → comms_update\n"
                 "  Input: 'incident resolved, please generate the postmortem'       → postmortem\n"
-                "  Input: 'how many P0s did we have last month?'                    → statistics\n"
                 "  Input: 'what is the weather today?'                              → other\n\n"
                 "Message to classify:\n"
                 "{task}"
@@ -81,7 +75,7 @@ class TaskClassifier:
         Classify an incoming message.
 
         Returns one of: 'escalation', 'query', 'comms_update', 'postmortem',
-        'statistics', 'other'.
+        'other'.
         """
         try:
             result = await self.chain.ainvoke({"task": task})

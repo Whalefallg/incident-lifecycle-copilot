@@ -6,7 +6,6 @@ Routing table:
     query         → RunbookAgent (ConsultantAgent)
     comms_update  → CommunicationAgent
     postmortem    → PostmortemAgent
-    statistics    → PatternAgent (UserBehaviorAgent) [future]
     other         → rejection message
 """
 
@@ -103,7 +102,7 @@ class AgentRouter:
         msg = (
             "This request is outside the scope of the Incident Lifecycle Copilot. "
             "I can help with: active incident escalation, runbook lookups, "
-            "stakeholder status updates, postmortem generation, and incident metrics."
+            "stakeholder status updates, and postmortem generation."
         )
         for char in msg:
             yield char
