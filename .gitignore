@@ -47,6 +47,7 @@ logs/
 .coverage
 .coverage.*
 htmlcov/
+benchmarks/latest_retrieval_results.json
 .tox/
 .nox/
 .mypy_cache/
