@@ -22,6 +22,7 @@ class IncidentProcessor:
         self.oncall_matcher = oncall_matcher
         self.message_builder = message_builder
         self.llm = llm
+        self.event_sink = None
 
     def update_history_from_data(
         self, incident_history: Dict[str, Any], data: Dict[str, Any]
@@ -181,6 +182,19 @@ class IncidentProcessor:
             "suspected_cause": incident_history.get("suspected_cause", "unknown"),
             "recent_changes": incident_history.get("recent_changes", "none reported"),
         }
+        if self.event_sink:
+            from conversation.events import IncidentEventType
+
+            self.event_sink(
+                IncidentEventType.ONCALL_DISPATCHED,
+                actor="EscalationAgent",
+                source="oncall_dispatch",
+                payload={
+                    "service": incident_context["service"],
+                    "severity": incident_context["severity"],
+                    "team": oncall.get("team") or oncall.get("primary"),
+                },
+            )
         return self.message_builder.create_escalation_dispatched_message(incident_context)
 
     async def handle_incomplete_info(

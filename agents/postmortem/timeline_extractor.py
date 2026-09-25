@@ -11,11 +11,11 @@ Extracts key events from the dialogue between engineers and the Copilot:
 """
 
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
-class TimelineExtractor:
-    """Reconstructs incident timeline from local session history."""
+class LegacyTranscriptTimelineExtractor:
+    """Best-effort importer for historical transcripts without event ledgers."""
 
     # Keywords that signal important timeline events
     TRIAGE_KEYWORDS = ["p0", "p1", "p2", "critical", "severity", "alert", "error rate", "down", "unavailable"]
@@ -40,7 +40,7 @@ class TimelineExtractor:
             List of timeline event dicts sorted by sequence.
         """
         events = []
-        start_ts = session_start_time or datetime.utcnow()
+        start_ts = session_start_time or datetime.now(timezone.utc)
 
         for i, msg in enumerate(session_messages):
             content = msg.get("content", "").lower()
@@ -135,3 +135,7 @@ class TimelineExtractor:
             "resolved_at": resolved_at or "ongoing",
             "message_count": len(session_messages),
         }
+
+
+# Compatibility alias for callers importing old transcripts explicitly.
+TimelineExtractor = LegacyTranscriptTimelineExtractor

@@ -29,6 +29,7 @@ class AgentRouter:
         self.communication_agent = communication_agent  # CommunicationAgent
         self.postmortem_agent = postmortem_agent        # PostmortemAgent
         self.state_manager = state_manager
+        self.event_sink = None
         self._setup_agent_states()
 
     def _setup_agent_states(self):
@@ -46,10 +47,20 @@ class AgentRouter:
             yield "[ERROR] Escalation service unavailable"
             return
         self.state_manager.transition_to_escalation()
+        if self.event_sink:
+            from conversation.events import IncidentEventType
+            self.event_sink(
+                IncidentEventType.ALERT_RECEIVED,
+                actor="TriageRouter",
+                source="user_request",
+                payload={"message": task},
+            )
         yield "[THOUGHT][Triage Router] P0/P1 incident detected — routing to Escalation Agent for impact assessment and on-call dispatch."
         try:
             async for token in self.escalation_agent.run_stream(user_input=task):
                 yield token
+            if getattr(self.escalation_agent, "workflow_complete", False):
+                self.state_manager.reset_to_classify()
         except Exception as e:
             yield f"[ERROR] Escalation failed: {e}"
             self.state_manager.reset_to_classify()
@@ -65,6 +76,15 @@ class AgentRouter:
             async with self.consultant_agent as agent:
                 async for token in agent.consult_stream(task):
                     yield token
+            if self.event_sink:
+                from conversation.events import IncidentEventType
+                self.event_sink(
+                    IncidentEventType.RUNBOOK_RETRIEVED,
+                    actor="RunbookAgent",
+                    source="retrieval",
+                    payload={"query": task},
+                )
+            self.state_manager.reset_to_classify()
         except Exception as e:
             yield f"[ERROR] Runbook lookup failed: {e}"
             self.state_manager.reset_to_classify()
@@ -79,6 +99,15 @@ class AgentRouter:
         try:
             async for token in self.communication_agent.draft_stream(task):
                 yield token
+            if self.event_sink:
+                from conversation.events import IncidentEventType
+                self.event_sink(
+                    IncidentEventType.STATUS_UPDATE_DRAFTED,
+                    actor="CommunicationAgent",
+                    source="comms_drafting",
+                    payload={"request": task},
+                )
+            self.state_manager.reset_to_classify()
         except Exception as e:
             yield f"[ERROR] Comms drafting failed: {e}"
             self.state_manager.reset_to_classify()
@@ -89,10 +118,21 @@ class AgentRouter:
             yield "[ERROR] Postmortem agent unavailable"
             return
         self.state_manager.transition_to_postmortem()
+        if self.event_sink and any(
+            word in task.lower() for word in ("resolved", "recovered", "closed", "fixed")
+        ):
+            from conversation.events import IncidentEventType
+            self.event_sink(
+                IncidentEventType.INCIDENT_RESOLVED,
+                actor="engineer",
+                source="user_confirmation",
+                payload={"statement": task},
+            )
         yield "[THOUGHT][Triage Router] Incident resolved — routing to Postmortem Agent to reconstruct timeline and generate draft."
         try:
             async for token in self.postmortem_agent.generate_stream(task):
                 yield token
+            self.state_manager.reset_to_classify()
         except Exception as e:
             yield f"[ERROR] Postmortem generation failed: {e}"
             self.state_manager.reset_to_classify()

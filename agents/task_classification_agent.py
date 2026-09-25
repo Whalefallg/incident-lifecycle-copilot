@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+from conversation.models import ConversationSnapshot
 from config.model_provider import create_chat_model
 from config.constants import SharedState, StateEnum
 from .task_classification import (
@@ -23,9 +24,7 @@ class TaskClassificationAgent:
     - CommunicationAgent for stakeholder updates
     - PostmortemAgent for post-incident report generation
 
-    Production features:
-    - Model routing: uses simple-tier model for classification
-    - Redis state management: supports stateless horizontal scaling
+    The request coordinator owns persistence; this object is disposable.
     """
 
     def __init__(
@@ -65,7 +64,6 @@ class TaskClassificationAgent:
         self.agent_router.set_task_classifier(self.task_classifier)
         self.state = self.state_manager.state
 
-        self._redis_enabled = os.getenv("REDIS_STATE_ENABLED", "false").lower() == "true"
 
     def _initialize_llm(self):
         routing_enabled = os.getenv("MODEL_ROUTING_ENABLED", "false").lower() == "true"
@@ -115,52 +113,14 @@ class TaskClassificationAgent:
         return await self.classification_processor.process_task_sync(task)
 
     async def classify_task_stream(self, task):
-        if self._redis_enabled:
-            await self._save_state_to_redis()
-
         async for token in self.classification_processor.process_task_stream(task):
             yield token
 
-        if self._redis_enabled:
-            await self._save_state_to_redis()
+    def hydrate(self, snapshot: ConversationSnapshot) -> None:
+        self.state_manager.hydrate(snapshot)
 
-    async def _save_state_to_redis(self):
-        """保存状态到 Redis（支持无状态水平扩展）"""
-        if not self.session_id:
-            return
-
-        try:
-            from config.redis_config import redis_state_store
-
-            state_data = {
-                "current_state": self.state_manager.state.value,
-                "suspend_stack": self.state_manager.suspend_stack,
-                "context": self.state_manager.get_context(),
-            }
-
-            await redis_state_store.save_state(self.session_id, state_data)
-        except Exception as e:
-            import logging
-            logging.error(f"Failed to save state to Redis: {e}")
-
-    async def _load_state_from_redis(self):
-        """从 Redis 加载状态"""
-        if not self.session_id:
-            return
-
-        try:
-            from config.redis_config import redis_state_store
-
-            state_data = await redis_state_store.load_state(self.session_id)
-            if state_data:
-                self.state_manager.state = StateEnum(state_data["current_state"])
-                self.state_manager.suspend_stack = state_data.get("suspend_stack", [])
-
-                import logging
-                logging.info(f"State restored from Redis: session={self.session_id}")
-        except Exception as e:
-            import logging
-            logging.error(f"Failed to load state from Redis: {e}")
+    def apply_to_snapshot(self, snapshot: ConversationSnapshot) -> None:
+        self.state_manager.apply_to_snapshot(snapshot)
 
     async def handle_unrelated(self, user_input):
         result = ""

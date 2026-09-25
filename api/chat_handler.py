@@ -1,10 +1,12 @@
-"""Session-scoped orchestration for chat requests."""
+"""Stateless request orchestration backed by a ConversationRepository."""
 
-import asyncio
-import logging
 import os
-import time
-from dataclasses import dataclass, field
+import uuid
+import hashlib
+import json
+from dataclasses import dataclass
+from typing import Callable
+from uuid import NAMESPACE_URL, uuid5
 
 from agents.escalation_agent import EscalationAgent
 from agents.communication_agent import CommunicationAgent
@@ -12,33 +14,116 @@ from agents.consultant_agent import ConsultantAgent
 from agents.postmortem_agent import PostmortemAgent
 from agents.task_classification_agent import TaskClassificationAgent
 from config.request_trace import new_trace_id, trace_step
-from config.semantic_cache import semantic_cache
+from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
+from conversation.events import IncidentEvent, IncidentEventType
+from conversation.repository import (
+    ConcurrentConversationUpdate,
+    ConversationAlreadyExists,
+    ConversationRepository,
+    InMemoryConversationRepository,
+    RedisConversationRepository,
+)
 
-logger = logging.getLogger(__name__)
-
-SEMANTIC_CACHE_ENABLED = os.getenv("SEMANTIC_CACHE_ENABLED", "false").lower() == "true"
-SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "3600"))
-MAX_LOCAL_SESSIONS = int(os.getenv("MAX_LOCAL_SESSIONS", "500"))
+MAX_CONVERSATION_RETRIES = int(os.getenv("CONVERSATION_MAX_RETRIES", "3"))
 
 
 @dataclass
 class SessionAgents:
-    """All mutable agent state owned by one browser session."""
+    """A disposable object graph hydrated for exactly one request attempt."""
 
     task_agent: TaskClassificationAgent
     escalation_agent: EscalationAgent
     consultant_agent: ConsultantAgent
     postmortem_agent: PostmortemAgent
-    last_accessed: float = field(default_factory=time.monotonic)
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    pending_events: list[IncidentEvent] = None
+    _request_id: str | None = None
+    _event_ordinal: int = 0
 
-    def reset(self) -> None:
-        self.task_agent.reset_conversation()
-        self.escalation_agent.reset()
-        self.postmortem_agent.session_messages.clear()
+    def __post_init__(self) -> None:
+        self.pending_events = []
+        self.escalation_agent.event_sink = self.record_event
+        self.escalation_agent.incident_processor.event_sink = self.record_event
+        self.task_agent.agent_router.event_sink = self.record_event
 
+    def begin_request(self, request_id: str) -> None:
+        self._request_id = request_id
+        self._event_ordinal = 0
 
-_sessions: dict[str, SessionAgents] = {}
+    def record_event(
+        self,
+        event_type: IncidentEventType,
+        *,
+        actor: str,
+        source: str,
+        payload: dict | None = None,
+    ) -> None:
+        event_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                f"{self.escalation_agent.session_id}:{self._request_id}:"
+                f"{self._event_ordinal}:{event_type.value}",
+            )
+        )
+        self._event_ordinal += 1
+        event = IncidentEvent(
+            event_id=event_id,
+            incident_id=self.escalation_agent.session_id,
+            type=event_type,
+            actor=actor,
+            source=source,
+            request_id=self._request_id,
+            payload=payload or {},
+        )
+        self.pending_events.append(event)
+        self.postmortem_agent.incident_events.append(event)
+
+    def hydrate(self, snapshot: ConversationSnapshot) -> None:
+        self.task_agent.hydrate(snapshot)
+        self.escalation_agent.restore_snapshot(
+            snapshot.escalation_context.to_legacy_dict()
+        )
+        self.postmortem_agent.session_messages = [
+            message.model_dump(mode="json") for message in snapshot.messages
+        ]
+        self.postmortem_agent.incident_events = [
+            event.model_copy(deep=True) for event in snapshot.events
+        ]
+        self.postmortem_agent.escalation_context = (
+            snapshot.escalation_context.model_copy(deep=True)
+        )
+        self.postmortem_agent.next_draft_version = (
+            max(
+                (draft.version for draft in snapshot.postmortem_context.drafts),
+                default=0,
+            )
+            + 1
+        )
+        for message in snapshot.messages:
+            if message.role == "engineer":
+                self.escalation_agent.chat_history.add_user_message(message.content)
+            elif message.role == "agent":
+                self.escalation_agent.chat_history.add_ai_message(message.content)
+
+    def apply_to_snapshot(self, snapshot: ConversationSnapshot) -> None:
+        self.task_agent.apply_to_snapshot(snapshot)
+        snapshot.escalation_context = EscalationContext.from_legacy_dict(
+            self.escalation_agent._build_snapshot()
+        )
+        known_event_ids = {event.event_id for event in snapshot.events}
+        snapshot.events.extend(
+            event for event in self.pending_events if event.event_id not in known_event_ids
+        )
+        if self.postmortem_agent.generated_draft:
+            existing = {
+                (draft.source_incident_id, draft.version): draft
+                for draft in snapshot.postmortem_context.drafts
+            }
+            key = (
+                self.postmortem_agent.generated_draft.source_incident_id,
+                self.postmortem_agent.generated_draft.version,
+            )
+            existing[key] = self.postmortem_agent.generated_draft
+            snapshot.postmortem_context.drafts = list(existing.values())
 
 
 def _build_session_agents(session_id: str) -> SessionAgents:
@@ -61,82 +146,148 @@ def _build_session_agents(session_id: str) -> SessionAgents:
     )
 
 
-def _prune_local_sessions() -> None:
-    now = time.monotonic()
-    expired = [
-        session_id
-        for session_id, bundle in _sessions.items()
-        if now - bundle.last_accessed > SESSION_TTL_SECONDS and not bundle.lock.locked()
-    ]
-    for session_id in expired:
-        _sessions.pop(session_id, None)
+_in_memory_repository = InMemoryConversationRepository()
+_redis_repository: RedisConversationRepository | None = None
 
-    if len(_sessions) > MAX_LOCAL_SESSIONS:
-        oldest = sorted(
-            (
-                (session_id, bundle)
-                for session_id, bundle in _sessions.items()
-                if not bundle.lock.locked()
-            ),
-            key=lambda item: item[1].last_accessed,
+
+async def get_conversation_repository() -> ConversationRepository:
+    global _redis_repository
+    if os.getenv("REDIS_STATE_ENABLED", "false").lower() != "true":
+        return _in_memory_repository
+    if _redis_repository is None:
+        from config.redis_config import RedisClient
+
+        client = await RedisClient.get_client()
+        ttl = RedisClient.get_config().state_ttl
+        _redis_repository = RedisConversationRepository(client, ttl_seconds=ttl)
+    return _redis_repository
+
+
+class ConversationCoordinator:
+    """Load, execute on a fresh graph, and atomically persist one request."""
+
+    def __init__(
+        self,
+        repository: ConversationRepository,
+        *,
+        agent_factory: Callable[[str], SessionAgents] = _build_session_agents,
+        max_retries: int = MAX_CONVERSATION_RETRIES,
+    ) -> None:
+        if max_retries < 1:
+            raise ValueError("max_retries must be at least 1")
+        self.repository = repository
+        self.agent_factory = agent_factory
+        self.max_retries = max_retries
+        self.built_graphs: list[SessionAgents] = []
+
+    async def _load_or_create(self, session_id: str) -> ConversationSnapshot:
+        snapshot = await self.repository.load(session_id)
+        if snapshot:
+            return snapshot
+        try:
+            return await self.repository.create(
+                ConversationSnapshot(session_id=session_id)
+            )
+        except ConversationAlreadyExists:
+            snapshot = await self.repository.load(session_id)
+            if snapshot is None:
+                raise
+            return snapshot
+
+    async def process(
+        self,
+        message: str,
+        session_id: str,
+        request_id: str,
+        *,
+        request_payload: dict | None = None,
+    ) -> str:
+        idempotency_key = f"{session_id}:{request_id}"
+        canonical_payload = request_payload or {"message": message}
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                canonical_payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        prior_response = await self.repository.claim_request(
+            idempotency_key, fingerprint
         )
-        for session_id, _ in oldest[: len(_sessions) - MAX_LOCAL_SESSIONS]:
-            _sessions.pop(session_id, None)
+        if prior_response is not None:
+            return prior_response
 
+        try:
+            for attempt in range(self.max_retries):
+                snapshot = await self._load_or_create(session_id)
+                graph = self.agent_factory(session_id)
+                self.built_graphs.append(graph)
+                if hasattr(graph, "begin_request"):
+                    graph.begin_request(request_id)
+                graph.hydrate(snapshot)
+                user_message = SessionMessage(role="engineer", content=message)
+                snapshot.messages.append(user_message)
+                graph.postmortem_agent.add_session_message(
+                    role="engineer",
+                    content=message,
+                    timestamp=user_message.timestamp.isoformat(),
+                )
 
-def get_session_agents(session_id: str) -> SessionAgents:
-    _prune_local_sessions()
-    bundle = _sessions.get(session_id)
-    if bundle is None:
-        bundle = _build_session_agents(session_id)
-        _sessions[session_id] = bundle
-    bundle.last_accessed = time.monotonic()
-    return bundle
+                new_trace_id()
+                tokens: list[str] = []
+                with trace_step("classify_and_route", agent="TriageRouter"):
+                    async for token in graph.task_agent.classify_task_stream(message):
+                        tokens.append(token)
+                response = "".join(tokens)
+
+                graph.apply_to_snapshot(snapshot)
+                snapshot.messages.append(SessionMessage(role="agent", content=response))
+                snapshot.processed_requests[request_id] = response
+                try:
+                    await self.repository.save(snapshot, snapshot.revision)
+                except ConcurrentConversationUpdate:
+                    if attempt + 1 >= self.max_retries:
+                        raise
+                    continue
+                await self.repository.complete_request(
+                    idempotency_key, fingerprint, response
+                )
+                return response
+        except Exception:
+            await self.repository.abandon_request(idempotency_key, fingerprint)
+            raise
+
+        raise ConcurrentConversationUpdate(
+            f"session={session_id} exceeded {self.max_retries} retries"
+        )
 
 
 async def reset_session(session_id: str) -> None:
-    bundle = _sessions.get(session_id)
-    if bundle is not None:
-        async with bundle.lock:
-            bundle.reset()
-            _sessions.pop(session_id, None)
-
-    if os.getenv("REDIS_STATE_ENABLED", "false").lower() == "true":
-        from config.redis_config import redis_state_store
-
-        await redis_state_store.delete_state(session_id)
+    repository = await get_conversation_repository()
+    await repository.delete(session_id)
 
 
 async def ProcessUserInput_stream(
-    user_input, state=None, context=None, session_id="default"
+    user_input,
+    state=None,
+    context=None,
+    session_id="default",
+    request_id: str | None = None,
 ):
-    """Route one user turn through the session's isolated agent graph."""
-    bundle = get_session_agents(session_id)
-    cache_context = {**(context or {}), "session_id": session_id}
-
-    async with bundle.lock:
-        bundle.last_accessed = time.monotonic()
-
-        if SEMANTIC_CACHE_ENABLED:
-            cached_text = await semantic_cache.get(user_input, cache_context)
-            if cached_text:
-                logger.info("Semantic cache hit")
-                for char in cached_text:
-                    yield char
-                return
-
-        bundle.postmortem_agent.add_session_message(role="engineer", content=user_input)
-
-        new_trace_id()
-        with trace_step("classify_and_route", agent="TriageRouter"):
-            response_tokens = []
-            async for token in bundle.task_agent.classify_task_stream(user_input):
-                response_tokens.append(token)
-                yield token
-
-        full_response = "".join(response_tokens)
-        bundle.postmortem_agent.add_session_message(role="agent", content=full_response)
-
-        if SEMANTIC_CACHE_ENABLED and len(full_response) > 20:
-            await semantic_cache.set(user_input, full_response, cache_context)
-            logger.debug("Semantic cache set for session=%s", session_id[:8])
+    """Process a turn without relying on a long-lived Python agent object."""
+    repository = await get_conversation_repository()
+    coordinator = ConversationCoordinator(repository)
+    message = str(user_input)
+    response = await coordinator.process(
+        message,
+        session_id,
+        request_id or str(uuid.uuid4()),
+        request_payload={
+            "message": message,
+            "state": state,
+            "context": context or {},
+        },
+    )
+    for token in response:
+        yield token
