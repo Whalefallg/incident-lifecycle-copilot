@@ -80,9 +80,7 @@ async def test_successful_dispatch_emits_factual_event():
     processor = IncidentProcessor(MagicMock(), MagicMock(), MagicMock(), None)
     processor.message_builder.create_escalation_dispatched_message.return_value = "done"
     recorded = []
-    processor.event_sink = lambda event_type, **kwargs: recorded.append(
-        (event_type, kwargs)
-    )
+    processor.event_sink = lambda event_type, **kwargs: recorded.append((event_type, kwargs))
     await processor._process_successful_escalation(
         {"team": "platform-sre"},
         {"service": "checkout", "severity": "P1"},
@@ -105,8 +103,9 @@ async def test_resolution_confirmation_is_recorded_before_postmortem_generation(
     postmortem.generate_stream = generate_stream
     router = AgentRouter(MagicMock(), MagicMock(), state, postmortem_agent=postmortem)
     router.event_sink = lambda event_type, **kwargs: seen.append((event_type, kwargs))
-    output = [token async for token in router.route_to_postmortem(
-        "incident resolved, generate postmortem"
-    )]
+    output = [
+        token
+        async for token in router.route_to_postmortem("incident resolved, generate postmortem")
+    ]
     assert "draft" in output
     assert state.should_classify()

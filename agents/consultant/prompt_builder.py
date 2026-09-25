@@ -4,9 +4,9 @@ Constructs prompts for runbook retrieval, incident lookup, and
 classification of whether a query is within scope.
 """
 
-from typing import List, Dict, Any
+from config.domain_knowledge import get_domain_context
+
 from .retrieval import RetrievalResult
-from config.domain_knowledge import get_domain_context, get_severity_guide
 
 
 class PromptBuilder:
@@ -51,7 +51,9 @@ class PromptBuilder:
             "Input: {user_input}"
         )
 
-    def build_consultation_prompt(self, user_input: str, knowledge_docs: list[RetrievalResult]) -> str:
+    def build_consultation_prompt(
+        self, user_input: str, knowledge_docs: list[RetrievalResult]
+    ) -> str:
         context = self._build_knowledge_context(knowledge_docs)
         return f"{self.system_prompt}\n\n{context}\nEngineer query: {user_input}\n\nProvide your answer:"
 

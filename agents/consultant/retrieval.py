@@ -31,15 +31,20 @@ class LocalRunbookRetriever:
     """Deterministic keyword baseline used explicitly in local/degraded startup mode."""
 
     def __init__(self, runbook_path: Path | None = None) -> None:
-        self.runbook_path = runbook_path or Path(__file__).resolve().parents[2] / "data" / "runbooks"
+        self.runbook_path = (
+            runbook_path or Path(__file__).resolve().parents[2] / "data" / "runbooks"
+        )
 
     async def search(
         self, query: str, *, top_k: int = 10, collection: str = "default"
     ) -> list[RetrievalResult]:
         del collection
         terms = {
-            term for term in re.findall(r"[a-z0-9_-]+", query.lower())
-            if len(term) > 1 and term not in {"a", "an", "and", "for", "how", "in", "is", "of", "the", "to", "what", "with"}
+            term
+            for term in re.findall(r"[a-z0-9_-]+", query.lower())
+            if len(term) > 1
+            and term
+            not in {"a", "an", "and", "for", "how", "in", "is", "of", "the", "to", "what", "with"}
         }
         scored: list[tuple[int, Path, str]] = []
         if not self.runbook_path.exists():

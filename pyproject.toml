@@ -1,0 +1,35 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+include = [
+    "agents/consultant/*.py",
+    "config/rag_mcp.py",
+    "conversation/*.py",
+    "knowledge/*.py",
+    "scripts/benchmark_retrieval.py",
+    "tests/test_conversation_recovery.py",
+    "tests/test_incident_events_postmortem.py",
+    "tests/test_knowledge_approval.py",
+    "tests/test_live_rag_mcp.py",
+    "tests/test_rag_mcp_contract.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "ASYNC"]
+ignore = ["E501", "ASYNC109"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+files = [
+    "agents/consultant",
+    "config/rag_mcp.py",
+    "conversation",
+    "knowledge",
+    "scripts/benchmark_retrieval.py",
+]
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+follow_imports = "skip"

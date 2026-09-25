@@ -8,7 +8,7 @@ import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ class RagMcpSettings:
         if max_retries < 0:
             raise ValueError("RAG_MCP_MAX_RETRIES must be non-negative")
         return cls(
-            mode=mode,
+            mode=cast(Literal["auto", "mcp", "local"], mode),
             server_path=Path(raw_path).expanduser() if raw_path else None,
             python_executable=os.getenv("RAG_MCP_PYTHON") or sys.executable,
             command=command,

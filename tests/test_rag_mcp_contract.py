@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -22,7 +21,6 @@ from agents.consultant.retrieval import LocalRunbookRetriever, RetrievalResult
 from agents.consultant.retrieval_runtime import initialize_retrieval, shutdown_retrieval
 from config.rag_mcp import RagMcpSettings
 
-
 MARKDOWN = """**检索结果**（共 2 条相关内容）
 
 **[1]** `data/documents/default/redis-oom-runbook.pdf`，第 3 页（相关度: 0.912）
@@ -42,14 +40,22 @@ def envelope(text=MARKDOWN, *, is_error=False):
 
 
 def tool_schema(maximum=50):
-    return {"tools": [{
-        "name": "query_knowledge_hub",
-        "inputSchema": {
-            "type": "object",
-            "properties": {"query": {"type": "string"}, "top_k": {"type": "integer", "maximum": maximum}, "collection": {"type": "string"}},
-            "required": ["query"],
-        },
-    }]}
+    return {
+        "tools": [
+            {
+                "name": "query_knowledge_hub",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "top_k": {"type": "integer", "maximum": maximum},
+                        "collection": {"type": "string"},
+                    },
+                    "required": ["query"],
+                },
+            }
+        ]
+    }
 
 
 def initialized():
@@ -66,19 +72,25 @@ def test_parser_splits_citations_and_preserves_real_scores():
     assert results[0].metadata["document_id_normalization"] == "incident-source-path-stem"
 
 
-@pytest.mark.parametrize("path, expected", [
-    ("data/documents/default/Redis OOM Runbook.PDF", "redis-oom-runbook"),
-    (r"C:\\docs\\checkout_error.yaml", "checkout-error"),
-])
+@pytest.mark.parametrize(
+    "path, expected",
+    [
+        ("data/documents/default/Redis OOM Runbook.PDF", "redis-oom-runbook"),
+        (r"C:\\docs\\checkout_error.yaml", "checkout-error"),
+    ],
+)
 def test_source_normalization(path, expected):
     assert normalize_document_id(path) == expected
 
 
-@pytest.mark.parametrize("text", [
-    "错误：查询内容不能为空。",
-    "检索组件初始化失败，请检查配置。错误：bad embedding",
-    "检索时发生错误：collection missing",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "错误：查询内容不能为空。",
+        "检索组件初始化失败，请检查配置。错误：bad embedding",
+        "检索时发生错误：collection missing",
+    ],
+)
 def test_upstream_text_errors_are_not_results(text):
     with pytest.raises(McpToolError):
         McpQueryResponseParser().parse(envelope(text))
@@ -117,7 +129,13 @@ async def test_query_passes_real_tool_contract_and_parses_results():
     client.capabilities = McpCapabilities("rag-as-mcp", "0.1.0", ("query_knowledge_hub",))
     client._request = AsyncMock(return_value=envelope())
     results = await client.query("redis oom", top_k=7, collection="ops")
-    client._request.assert_awaited_once_with("tools/call", {"name": "query_knowledge_hub", "arguments": {"query": "redis oom", "top_k": 7, "collection": "ops"}})
+    client._request.assert_awaited_once_with(
+        "tools/call",
+        {
+            "name": "query_knowledge_hub",
+            "arguments": {"query": "redis oom", "top_k": 7, "collection": "ops"},
+        },
+    )
     assert len(results) == 2
 
 
@@ -146,7 +164,9 @@ async def test_process_death_is_classified_without_retry_when_disabled():
 
 @pytest.mark.asyncio
 async def test_auto_falls_back_only_during_startup(tmp_path):
-    retriever = await initialize_retrieval(RagMcpSettings(mode="auto", server_path=tmp_path / "missing"))
+    retriever = await initialize_retrieval(
+        RagMcpSettings(mode="auto", server_path=tmp_path / "missing")
+    )
     assert isinstance(retriever, LocalRunbookRetriever)
     await shutdown_retrieval()
 
@@ -160,7 +180,10 @@ async def test_required_mode_fails_when_not_configured():
 @pytest.mark.asyncio
 async def test_agent_accepts_only_retriever_contract():
     from agents.consultant_agent import ConsultantAgent
+
     fake = AsyncMock()
-    fake.search = AsyncMock(return_value=[RetrievalResult(document_id="redis", content="steps", source="redis.md")])
+    fake.search = AsyncMock(
+        return_value=[RetrievalResult(document_id="redis", content="steps", source="redis.md")]
+    )
     agent = ConsultantAgent(retriever=fake)
     assert agent.retriever is fake

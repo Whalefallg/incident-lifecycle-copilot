@@ -1,9 +1,11 @@
 """Application/worker ownership for the shared retrieval backend."""
+
 from __future__ import annotations
 
 import logging
 
 from config.rag_mcp import RagMcpSettings
+
 from .mcp_rag_client import McpError, McpRagClient
 from .retrieval import LocalRunbookRetriever, Retriever
 

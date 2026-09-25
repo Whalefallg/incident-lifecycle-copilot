@@ -1,9 +1,7 @@
-from types import SimpleNamespace
-
 import pytest
 
-from api.chat_handler import ConversationCoordinator
 from agents.task_classification.state_manager import StateManager
+from api.chat_handler import ConversationCoordinator
 from config.constants import StateEnum
 from conversation.models import ConversationSnapshot, EscalationContext
 from conversation.repository import (
@@ -36,9 +34,7 @@ class FakeTaskAgent:
         elif normalized == "continue":
             frame = self.graph.state.resume_suspended()
             assert frame is not None
-            self.graph.context = EscalationContext.from_legacy_dict(
-                frame.agent_snapshot
-            )
+            self.graph.context = EscalationContext.from_legacy_dict(frame.agent_snapshot)
             yield "escalation resumed"
 
 
@@ -65,17 +61,21 @@ async def test_cross_worker_recovery_and_request_idempotency():
     session_id = "cross-worker-session"
 
     worker_a = ConversationCoordinator(repository, agent_factory=FakeGraph)
-    assert await worker_a.process(
-        "checkout is failing in eu-west-1, severity P1", session_id, "request-a"
-    ) == "escalation started"
+    assert (
+        await worker_a.process(
+            "checkout is failing in eu-west-1, severity P1", session_id, "request-a"
+        )
+        == "escalation started"
+    )
     after_a = await repository.load(session_id)
     assert after_a.revision == 1
     assert after_a.current_state == StateEnum.ESCALATION
 
     worker_b = ConversationCoordinator(repository, agent_factory=FakeGraph)
-    assert await worker_b.process(
-        "what is the Redis OOM runbook?", session_id, "request-b"
-    ) == "Redis OOM runbook"
+    assert (
+        await worker_b.process("what is the Redis OOM runbook?", session_id, "request-b")
+        == "Redis OOM runbook"
+    )
     after_b = await repository.load(session_id)
     assert after_b.revision == 2
     assert after_b.current_state == StateEnum.CLASSIFY
@@ -156,9 +156,7 @@ class AlwaysConflictingRepository(InMemoryConversationRepository):
 @pytest.mark.asyncio
 async def test_concurrent_update_retry_is_bounded():
     repository = AlwaysConflictingRepository()
-    coordinator = ConversationCoordinator(
-        repository, agent_factory=FakeGraph, max_retries=2
-    )
+    coordinator = ConversationCoordinator(repository, agent_factory=FakeGraph, max_retries=2)
     with pytest.raises(ConcurrentConversationUpdate):
         await coordinator.process(
             "checkout is failing in eu-west-1, severity P1", "bounded", "request"

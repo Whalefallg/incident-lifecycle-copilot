@@ -1,8 +1,11 @@
 """Live rag-as-mcp contract tests; only fixture setup may skip."""
+
 import os
 from pathlib import Path
+
 import pytest
 import pytest_asyncio
+
 from agents.consultant.mcp_rag_client import McpRagClient
 from config.rag_mcp import RagMcpSettings
 
@@ -19,7 +22,14 @@ async def live_client():
     settings_path = Path(raw_settings) if raw_settings else server_path / "config" / "settings.yaml"
     if not settings_path.is_file():
         pytest.skip("rag-as-mcp settings file is unavailable before setup")
-    client = McpRagClient(RagMcpSettings(mode="mcp", server_path=server_path, python_executable=os.getenv("RAG_MCP_PYTHON"), settings_path=settings_path))
+    client = McpRagClient(
+        RagMcpSettings(
+            mode="mcp",
+            server_path=server_path,
+            python_executable=os.getenv("RAG_MCP_PYTHON"),
+            settings_path=settings_path,
+        )
+    )
     await client.start()
     yield client
     await client.stop()

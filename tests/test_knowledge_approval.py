@@ -1,12 +1,12 @@
 import pytest
 
+from conversation.models import ConversationSnapshot
 from knowledge.approval import (
     InMemoryKnowledgeDraftRepository,
     InMemoryKnowledgeIngestor,
     KnowledgeApprovalService,
     KnowledgeDraftStatus,
 )
-from conversation.models import ConversationSnapshot
 
 
 def service():
@@ -84,12 +84,8 @@ async def test_persisted_draft_api_transition_updates_snapshot(monkeypatch):
     await repository.create(snapshot)
     monkeypatch.setattr(chat_handler, "_in_memory_repository", repository)
 
-    reviewed = await _transition_draft(
-        "session-approval", draft.draft_id, "review", "reviewer"
-    )
-    approved = await _transition_draft(
-        "session-approval", draft.draft_id, "approve", "approver"
-    )
+    reviewed = await _transition_draft("session-approval", draft.draft_id, "review", "reviewer")
+    approved = await _transition_draft("session-approval", draft.draft_id, "approve", "approver")
     persisted = await repository.load("session-approval")
 
     assert reviewed.status is KnowledgeDraftStatus.REVIEWED

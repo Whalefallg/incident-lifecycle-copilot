@@ -3,6 +3,7 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
+
 from redis.asyncio import Redis
 
 from .models import ConversationSnapshot, utc_now
@@ -49,9 +50,7 @@ class ConversationRepository(ABC):
     async def claim_request(self, request_id: str, fingerprint: str) -> str | None: ...
 
     @abstractmethod
-    async def complete_request(
-        self, request_id: str, fingerprint: str, response: str
-    ) -> None: ...
+    async def complete_request(self, request_id: str, fingerprint: str, response: str) -> None: ...
 
     @abstractmethod
     async def abandon_request(self, request_id: str, fingerprint: str) -> None: ...
@@ -116,9 +115,7 @@ class InMemoryConversationRepository(ConversationRepository):
                 raise RequestInProgress(request_id)
             return response
 
-    async def complete_request(
-        self, request_id: str, fingerprint: str, response: str
-    ) -> None:
+    async def complete_request(self, request_id: str, fingerprint: str, response: str) -> None:
         async with self._lock:
             record = self._requests.get(request_id)
             if record is None or record["fingerprint"] != fingerprint:
@@ -212,9 +209,7 @@ class RedisConversationRepository(ConversationRepository):
             {"status": "IN_PROGRESS", "fingerprint": fingerprint},
             separators=(",", ":"),
         )
-        claimed = await self._redis.set(
-            key, in_progress, ex=self._request_ttl_seconds, nx=True
-        )
+        claimed = await self._redis.set(key, in_progress, ex=self._request_ttl_seconds, nx=True)
         if claimed:
             return None
         raw = await self._redis.get(key)
@@ -231,9 +226,7 @@ class RedisConversationRepository(ConversationRepository):
             raise RequestInProgress(request_id)
         return record["response"]
 
-    async def complete_request(
-        self, request_id: str, fingerprint: str, response: str
-    ) -> None:
+    async def complete_request(self, request_id: str, fingerprint: str, response: str) -> None:
         completed = json.dumps(
             {
                 "status": "COMPLETED",

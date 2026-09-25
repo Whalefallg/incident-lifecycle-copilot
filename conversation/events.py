@@ -49,10 +49,9 @@ def format_timeline(events: list[IncidentEvent]) -> str:
         return "No structured incident events were recorded."
     lines = ["INCIDENT TIMELINE (recorded system events)", ""]
     for event in ordered:
-        detail = ", ".join(
-            f"{key}={value}" for key, value in sorted(event.payload.items())
-        ) or "no additional payload"
-        lines.append(
-            f"[{event.timestamp.isoformat()}] {event.type.value.upper()} — {detail}"
+        detail = (
+            ", ".join(f"{key}={value}" for key, value in sorted(event.payload.items()))
+            or "no additional payload"
         )
+        lines.append(f"[{event.timestamp.isoformat()}] {event.type.value.upper()} — {detail}")
     return "\n".join(lines)

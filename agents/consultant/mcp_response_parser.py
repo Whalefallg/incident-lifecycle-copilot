@@ -61,8 +61,7 @@ class McpQueryResponseParser:
             if body_lines and body_lines[0].startswith(">"):
                 body_lines[0] = body_lines[0][1:].lstrip()
             body = "\n".join(
-                line[1:].lstrip() if line.startswith(">") else line
-                for line in body_lines
+                line[1:].lstrip() if line.startswith(">") else line for line in body_lines
             ).strip()
             if not body:
                 raise McpMalformedResponse(f"citation {match.group('index')} has empty content")
@@ -73,13 +72,15 @@ class McpQueryResponseParser:
             }
             if match.group("page"):
                 metadata["page"] = match.group("page").strip()
-            results.append(RetrievalResult(
-                document_id=normalize_document_id(source),
-                content=body,
-                source=source,
-                score=None if raw_score == "N/A" else float(raw_score),
-                metadata=metadata,
-            ))
+            results.append(
+                RetrievalResult(
+                    document_id=normalize_document_id(source),
+                    content=body,
+                    source=source,
+                    score=None if raw_score == "N/A" else float(raw_score),
+                    metadata=metadata,
+                )
+            )
         return results
 
     @staticmethod
@@ -88,6 +89,7 @@ class McpQueryResponseParser:
         if not isinstance(items, list):
             return ""
         return "\n".join(
-            item.get("text", "") for item in items
+            item.get("text", "")
+            for item in items
             if isinstance(item, dict) and item.get("type") == "text"
         )

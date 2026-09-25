@@ -1,7 +1,8 @@
 """Compatibility facade over the backend-neutral Retriever contract."""
+
 from __future__ import annotations
 
-from .retrieval import Retriever, RetrievalResult
+from .retrieval import RetrievalResult, Retriever
 
 
 class KnowledgeRetriever:
