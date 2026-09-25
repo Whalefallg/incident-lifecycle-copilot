@@ -60,29 +60,13 @@ async def test_local_runbook_fallback_returns_grounded_source(monkeypatch):
     assert "MEMORY DOCTOR" in docs[0]["content"]
 
 
-def test_agent_graphs_are_isolated_by_session(monkeypatch):
-    created = []
+def test_agent_graphs_are_disposable_per_request():
+    first = chat_handler._build_session_agents("session-a")
+    second = chat_handler._build_session_agents("session-a")
 
-    def fake_builder(session_id):
-        bundle = SimpleNamespace(
-            session_id=session_id,
-            last_accessed=0,
-            lock=SimpleNamespace(locked=lambda: False),
-        )
-        created.append(bundle)
-        return bundle
-
-    monkeypatch.setattr(chat_handler, "_build_session_agents", fake_builder)
-    chat_handler._sessions.clear()
-
-    first = chat_handler.get_session_agents("session-a")
-    first_again = chat_handler.get_session_agents("session-a")
-    second = chat_handler.get_session_agents("session-b")
-
-    assert first is first_again
     assert first is not second
-    assert [bundle.session_id for bundle in created] == ["session-a", "session-b"]
-    chat_handler._sessions.clear()
+    assert first.task_agent is not second.task_agent
+    assert first.escalation_agent is not second.escalation_agent
 
 
 def test_celery_tasks_register_without_missing_agent_modules():
