@@ -6,6 +6,7 @@ from knowledge.approval import (
     InMemoryKnowledgeIngestor,
     KnowledgeApprovalService,
     KnowledgeDraftStatus,
+    transition_draft,
 )
 
 
@@ -105,3 +106,14 @@ def test_knowledge_draft_round_trip_is_part_of_snapshot():
     draft = restored.postmortem_context.drafts[0]
     assert draft.content == "review content"
     assert draft.status is KnowledgeDraftStatus.DRAFT
+
+
+def test_shared_transition_function_enforces_review_before_approval():
+    from knowledge.approval import KnowledgeDraft
+
+    draft = KnowledgeDraft.create("INC-domain", 1, "analysis")
+    with pytest.raises(ValueError, match="invalid approve transition"):
+        transition_draft(draft, "approve", "approver")
+    transition_draft(draft, "review", "reviewer")
+    transition_draft(draft, "approve", "approver")
+    assert draft.status is KnowledgeDraftStatus.APPROVED

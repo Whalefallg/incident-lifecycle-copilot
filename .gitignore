@@ -53,6 +53,14 @@ benchmarks/latest_retrieval_results.json
 .mypy_cache/
 .ruff_cache/
 
+# --- Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.openapi.json
+frontend/playwright-report/
+frontend/test-results/
+
 # --- IDE / OS ---
 .idea/
 .vscode/

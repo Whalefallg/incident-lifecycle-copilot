@@ -1,9 +1,9 @@
 """
 知识库管理API
 """
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+
 from api.core.security import require_admin
 
 router = APIRouter(prefix="/api/knowledge", tags=["知识库管理"])
@@ -64,9 +64,8 @@ async def list_postmortem_drafts(session_id: str):
 
 async def _transition_draft(session_id: str, draft_id: str, action: str, actor: str):
     from api.chat_handler import get_conversation_repository
-    from conversation.models import utc_now
     from conversation.repository import ConcurrentConversationUpdate
-    from knowledge.approval import KnowledgeDraftStatus
+    from knowledge.approval import transition_draft
 
     repository = await get_conversation_repository()
     for attempt in range(3):
@@ -80,32 +79,21 @@ async def _transition_draft(session_id: str, draft_id: str, action: str, actor: 
         if not draft:
             raise HTTPException(status_code=404, detail="Draft not found")
 
-        if action == "review" and draft.status == KnowledgeDraftStatus.DRAFT:
-            draft.status = KnowledgeDraftStatus.REVIEWED
-            draft.reviewed_by = actor
-            draft.reviewed_at = utc_now()
-        elif action == "approve" and draft.status == KnowledgeDraftStatus.REVIEWED:
-            draft.status = KnowledgeDraftStatus.APPROVED
-            draft.approved_by = actor
-            draft.approved_at = utc_now()
-        elif action == "reject" and draft.status in {
-            KnowledgeDraftStatus.DRAFT,
-            KnowledgeDraftStatus.REVIEWED,
-        }:
-            draft.status = KnowledgeDraftStatus.REJECTED
-            draft.reviewed_by = actor
-            draft.reviewed_at = utc_now()
-        else:
+        try:
+            transition_draft(draft, action, actor)
+        except ValueError as exc:
             raise HTTPException(
                 status_code=409,
-                detail=f"Invalid {action} transition from {draft.status.value}",
-            )
+                detail=str(exc),
+            ) from exc
         try:
             await repository.save(snapshot, snapshot.revision)
             return draft
-        except ConcurrentConversationUpdate:
+        except ConcurrentConversationUpdate as exc:
             if attempt == 2:
-                raise HTTPException(status_code=409, detail="Concurrent draft update")
+                raise HTTPException(
+                    status_code=409, detail="Concurrent draft update"
+                ) from exc
 
 
 @router.post("/drafts/{session_id}/{draft_id}/review", dependencies=[Depends(require_admin)])

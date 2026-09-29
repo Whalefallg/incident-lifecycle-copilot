@@ -177,6 +177,8 @@ MCP 成功初始化后，运行时查询错误会显式暴露，不会静默切�
 
 ## 快速开始
 
+完整产品由 FastAPI API 与 React + TypeScript workspace 组成。本地开发使用两个进程：
+
 ```bash
 git clone https://github.com/Whalefallg/incident-lifecycle-copilot.git
 cd incident-lifecycle-copilot
@@ -187,8 +189,25 @@ source .venv/bin/activate
 pip install -r requirements-production.txt
 cp .env.example .env
 
-python app.py
+# terminal 1
+uvicorn app:app --reload --port 8000
+
+# terminal 2
+cd frontend
+npm ci
+npm run dev
 ```
+
+访问 `http://localhost:5173`。Vite 会将 `/api` 代理到 FastAPI。生产构建由 FastAPI 在 `http://localhost:8000` 直接提供，旧 Jinja UI 保留在 `/legacy`。
+
+单容器构建：
+
+```bash
+docker build -t incident-lifecycle-copilot .
+docker run --rm -p 8000:8000 --env-file .env incident-lifecycle-copilot
+```
+
+镜像使用 Node 构建阶段生成前端静态资源，再复制进精简 Python runtime；生产 Compose 不运行 Vite dev server。
 
 默认使用本地 RAG 时无需启动外部 MCP 服务。
 
@@ -212,6 +231,15 @@ pip install -r requirements-dev.txt
 
 ```bash
 pytest -q
+
+cd frontend
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npx playwright install chromium
+npm run test:e2e
+npm run build
 ```
 
 Redis 集成测试：
@@ -471,6 +499,8 @@ Once MCP has initialized successfully, runtime query failures are explicit and d
 
 ## Quick Start
 
+The complete product consists of the FastAPI API and a React + TypeScript incident workspace. Local development uses two processes:
+
 ```bash
 git clone https://github.com/Whalefallg/incident-lifecycle-copilot.git
 cd incident-lifecycle-copilot
@@ -481,8 +511,25 @@ source .venv/bin/activate
 pip install -r requirements-production.txt
 cp .env.example .env
 
-python app.py
+# terminal 1
+uvicorn app:app --reload --port 8000
+
+# terminal 2
+cd frontend
+npm ci
+npm run dev
 ```
+
+Open `http://localhost:5173`; Vite proxies `/api` to FastAPI. The production build is served by FastAPI at `http://localhost:8000`, while the former Jinja UI remains available at `/legacy`.
+
+Single-container build:
+
+```bash
+docker build -t incident-lifecycle-copilot .
+docker run --rm -p 8000:8000 --env-file .env incident-lifecycle-copilot
+```
+
+The image builds the frontend in a Node stage and copies only the compiled assets into the Python runtime. Production Compose does not run a Vite development server.
 
 For MCP-backed retrieval:
 
@@ -504,6 +551,15 @@ Run the default offline suite:
 
 ```bash
 pytest -q
+
+cd frontend
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+npx playwright install chromium
+npm run test:e2e
+npm run build
 ```
 
 Redis integration tests:
@@ -529,7 +585,7 @@ ruff format --check .
 mypy
 ```
 
-GitHub Actions currently runs the offline suite on Python 3.11 with external Redis, semantic cache, and model-routing dependencies disabled for deterministic CI execution.
+GitHub Actions runs independent backend, frontend, fixture-backed Playwright, and Docker build jobs. The E2E scenario uses a fake model stream and fixture RAG data, so CI never depends on paid model APIs.
 
 ## Retrieval Evaluation
 

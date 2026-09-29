@@ -10,26 +10,47 @@ Production enhancements:
 - Semantic Caching（降低 LLM API 成本）
 - 会话中间件与性能监控
 """
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from api import api_routers
-from api.core.exceptions import api_exception_handler, general_exception_handler, BusinessException
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from api import get_api_routers
+from api.core.exceptions import (
+    ApiException,
+    BusinessException,
+    api_exception_handler,
+    general_exception_handler,
+    incident_not_found_handler,
+    repository_exception_handler,
+    validation_exception_handler,
+)
 from api.middleware import (
     DemoRateLimitMiddleware,
-    SessionMiddleware,
     PerformanceMiddleware,
     RequestLogMiddleware,
+    SessionMiddleware,
 )
-from web import router as web_router
 from config.redis_config import RedisClient
+from conversation.repository import (
+    ConcurrentConversationUpdate,
+    ConversationAlreadyExists,
+    IdempotencyKeyMismatch,
+    RequestInProgress,
+)
+from services.incidents import IncidentNotFound
+from web import router as web_router
+from web.spa import SPAStaticFiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 async def initialize_system():
     """
@@ -42,6 +63,7 @@ async def initialize_system():
     """
     logger.info("🚀 Initializing Incident Lifecycle Copilot...")
     from agents.consultant.retrieval_runtime import initialize_retrieval
+
     await initialize_retrieval()
 
     redis_enabled = os.getenv("REDIS_STATE_ENABLED", "false").lower() == "true"
@@ -55,10 +77,12 @@ async def initialize_system():
 
     logger.info("System initialization complete")
 
+
 async def shutdown_system():
     """Cleanup on shutdown"""
     logger.info("🛑 Shutting down system...")
     from agents.consultant.retrieval_runtime import shutdown_retrieval
+
     await shutdown_retrieval()
     await RedisClient.close()
     logger.info("✅ Cleanup complete")
@@ -71,6 +95,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         await shutdown_system()
+
 
 def create_app() -> FastAPI:
     """创建FastAPI应用实例"""
@@ -85,9 +110,7 @@ def create_app() -> FastAPI:
     )
 
     allowed_origins = [
-        origin.strip()
-        for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
-        if origin.strip()
+        origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "").split(",") if origin.strip()
     ]
     if allowed_origins:
         app.add_middleware(
@@ -105,21 +128,36 @@ def create_app() -> FastAPI:
     # be outermost so downstream logging and route handlers see the same ID.
     app.add_middleware(SessionMiddleware)
 
+    app.add_exception_handler(ApiException, api_exception_handler)
     app.add_exception_handler(BusinessException, api_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(IncidentNotFound, incident_not_found_handler)
+    for repository_error in (
+        ConcurrentConversationUpdate,
+        ConversationAlreadyExists,
+        IdempotencyKeyMismatch,
+        RequestInProgress,
+    ):
+        app.add_exception_handler(repository_error, repository_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
 
-    for router in api_routers:
+    for router in get_api_routers():
         app.include_router(router)
 
     app.include_router(web_router)
 
     app.mount("/static", StaticFiles(directory="web/static"), name="static")
+    frontend_dist = Path(__file__).parent / "frontend" / "dist"
+    if frontend_dist.joinpath("index.html").is_file():
+        app.mount("/", SPAStaticFiles(frontend_dist), name="frontend")
 
     return app
+
 
 # 创建应用实例
 app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=8001)

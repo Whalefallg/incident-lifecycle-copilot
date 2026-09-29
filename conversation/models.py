@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from config.constants import StateEnum
 from conversation.events import IncidentEvent
+from conversation.observability import RequestTrace
 from knowledge.approval import KnowledgeDraft
 
 
@@ -62,12 +63,20 @@ class PostmortemContext(BaseModel):
     drafts: list[KnowledgeDraft] = Field(default_factory=list)
 
 
+class IncidentMetadata(BaseModel):
+    """User-facing incident identity kept with the recoverable snapshot."""
+
+    title: str | None = None
+    status: str = "open"
+
+
 class ConversationSnapshot(BaseModel):
     model_config = ConfigDict(use_enum_values=False)
 
-    schema_version: int = 1
+    schema_version: int = 3
     session_id: str
     revision: int = 0
+    incident: IncidentMetadata = Field(default_factory=IncidentMetadata)
     current_state: StateEnum = StateEnum.CLASSIFY
     suspend_stack: list[SuspendedFrame] = Field(default_factory=list)
     escalation_context: EscalationContext = Field(default_factory=EscalationContext)
@@ -76,6 +85,7 @@ class ConversationSnapshot(BaseModel):
     messages: list[SessionMessage] = Field(default_factory=list)
     events: list[IncidentEvent] = Field(default_factory=list)
     processed_requests: dict[str, str] = Field(default_factory=dict)
+    request_traces: list[RequestTrace] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

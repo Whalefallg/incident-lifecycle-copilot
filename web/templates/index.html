@@ -587,7 +587,7 @@
         lastBotBubble = chatBox.querySelector('.message.bot:last-child .bubble');
 
         try {
-            const res = await fetch('/chat/stream', {
+            const res = await fetch('/legacy/chat/stream', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({message: text})
@@ -629,7 +629,7 @@
     clearBtn.onclick = async function() {
         clearBtn.disabled = true;
         try {
-            const response = await fetch('/chat/session', {method: 'DELETE'});
+            const response = await fetch('/legacy/chat/session', {method: 'DELETE'});
             if (!response.ok) throw new Error('Unable to reset the server session');
 
         // 保留欢迎消息，只清除其他对话

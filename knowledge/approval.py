@@ -47,6 +47,28 @@ class KnowledgeDraft(BaseModel):
         )
 
 
+def transition_draft(draft: KnowledgeDraft, action: str, actor: str) -> KnowledgeDraft:
+    """Apply the authoritative reviewed knowledge lifecycle transition."""
+    if action == "review" and draft.status == KnowledgeDraftStatus.DRAFT:
+        draft.status = KnowledgeDraftStatus.REVIEWED
+        draft.reviewed_by = actor
+        draft.reviewed_at = utc_now()
+    elif action == "approve" and draft.status == KnowledgeDraftStatus.REVIEWED:
+        draft.status = KnowledgeDraftStatus.APPROVED
+        draft.approved_by = actor
+        draft.approved_at = utc_now()
+    elif action == "reject" and draft.status in {
+        KnowledgeDraftStatus.DRAFT,
+        KnowledgeDraftStatus.REVIEWED,
+    }:
+        draft.status = KnowledgeDraftStatus.REJECTED
+        draft.reviewed_by = actor
+        draft.reviewed_at = utc_now()
+    else:
+        raise ValueError(f"invalid {action} transition from {draft.status.value}")
+    return draft
+
+
 class KnowledgeIngestor(Protocol):
     async def ingest(self, draft: KnowledgeDraft) -> str: ...
 
@@ -104,30 +126,15 @@ class KnowledgeApprovalService:
 
     async def review(self, draft_id: str, reviewer: str) -> KnowledgeDraft:
         draft = await self._required(draft_id)
-        if draft.status != KnowledgeDraftStatus.DRAFT:
-            raise ValueError("only draft knowledge can be reviewed")
-        draft.status = KnowledgeDraftStatus.REVIEWED
-        draft.reviewed_by = reviewer
-        draft.reviewed_at = utc_now()
-        return await self.repository.save(draft)
+        return await self.repository.save(transition_draft(draft, "review", reviewer))
 
     async def approve(self, draft_id: str, approver: str) -> KnowledgeDraft:
         draft = await self._required(draft_id)
-        if draft.status != KnowledgeDraftStatus.REVIEWED:
-            raise ValueError("knowledge must be reviewed before approval")
-        draft.status = KnowledgeDraftStatus.APPROVED
-        draft.approved_by = approver
-        draft.approved_at = utc_now()
-        return await self.repository.save(draft)
+        return await self.repository.save(transition_draft(draft, "approve", approver))
 
     async def reject(self, draft_id: str, reviewer: str) -> KnowledgeDraft:
         draft = await self._required(draft_id)
-        if draft.status not in {KnowledgeDraftStatus.DRAFT, KnowledgeDraftStatus.REVIEWED}:
-            raise ValueError("approved or ingested knowledge cannot be rejected")
-        draft.status = KnowledgeDraftStatus.REJECTED
-        draft.reviewed_by = reviewer
-        draft.reviewed_at = utc_now()
-        return await self.repository.save(draft)
+        return await self.repository.save(transition_draft(draft, "reject", reviewer))
 
     async def ingest(self, draft_id: str) -> KnowledgeDraft:
         draft = await self._required(draft_id)
