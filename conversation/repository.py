@@ -33,6 +33,9 @@ class IdempotencyKeyMismatch(ConversationRepositoryError):
 
 class ConversationRepository(ABC):
     @abstractmethod
+    async def list(self) -> list[ConversationSnapshot]: ...
+
+    @abstractmethod
     async def load(self, session_id: str) -> ConversationSnapshot | None: ...
 
     @abstractmethod
@@ -68,6 +71,10 @@ class InMemoryConversationRepository(ConversationRepository):
         async with self._lock:
             value = self._snapshots.get(session_id)
             return value.model_copy(deep=True) if value else None
+
+    async def list(self) -> list[ConversationSnapshot]:
+        async with self._lock:
+            return [value.model_copy(deep=True) for value in self._snapshots.values()]
 
     async def create(self, snapshot: ConversationSnapshot) -> ConversationSnapshot:
         async with self._lock:
@@ -168,6 +175,14 @@ class RedisConversationRepository(ConversationRepository):
     async def load(self, session_id: str) -> ConversationSnapshot | None:
         raw = await self._redis.get(self._session_key(session_id))
         return ConversationSnapshot.from_json_payload(raw) if raw else None
+
+    async def list(self) -> list[ConversationSnapshot]:
+        snapshots: list[ConversationSnapshot] = []
+        async for key in self._redis.scan_iter(match=f"{self.SESSION_PREFIX}*"):
+            raw = await self._redis.get(key)
+            if raw:
+                snapshots.append(ConversationSnapshot.from_json_payload(raw))
+        return snapshots
 
     async def create(self, snapshot: ConversationSnapshot) -> ConversationSnapshot:
         created = await self._redis.set(

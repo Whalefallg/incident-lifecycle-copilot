@@ -62,12 +62,20 @@ class PostmortemContext(BaseModel):
     drafts: list[KnowledgeDraft] = Field(default_factory=list)
 
 
+class IncidentMetadata(BaseModel):
+    """User-facing incident identity kept with the recoverable snapshot."""
+
+    title: str | None = None
+    status: str = "open"
+
+
 class ConversationSnapshot(BaseModel):
     model_config = ConfigDict(use_enum_values=False)
 
-    schema_version: int = 1
+    schema_version: int = 2
     session_id: str
     revision: int = 0
+    incident: IncidentMetadata = Field(default_factory=IncidentMetadata)
     current_state: StateEnum = StateEnum.CLASSIFY
     suspend_stack: list[SuspendedFrame] = Field(default_factory=list)
     escalation_context: EscalationContext = Field(default_factory=EscalationContext)
