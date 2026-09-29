@@ -15,6 +15,23 @@ class CreateIncidentRequest(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
 
 
+class CreateMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    request_id: str = Field(min_length=1, max_length=100)
+
+
+class MessageResponse(BaseModel):
+    role: str
+    content: str
+    timestamp: datetime
+
+
+class MessageListResponse(BaseModel):
+    incident_id: str
+    items: list[MessageResponse]
+    total: int
+
+
 class IncidentResponse(BaseModel):
     incident_id: str
     title: str
@@ -48,4 +65,3 @@ class IncidentTimelineResponse(BaseModel):
     incident_id: str
     items: list[IncidentEventResponse]
     total: int
-

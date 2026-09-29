@@ -1,21 +1,22 @@
 """Stateless request orchestration backed by a ConversationRepository."""
 
-import os
-import uuid
 import hashlib
 import json
+import os
+import uuid
 from dataclasses import dataclass
 from typing import Callable
 from uuid import NAMESPACE_URL, uuid5
 
-from agents.escalation_agent import EscalationAgent
 from agents.communication_agent import CommunicationAgent
 from agents.consultant_agent import ConsultantAgent
+from agents.escalation_agent import EscalationAgent
 from agents.postmortem_agent import PostmortemAgent
 from agents.task_classification_agent import TaskClassificationAgent
 from config.request_trace import new_trace_id, trace_step
-from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
 from conversation.events import IncidentEvent, IncidentEventType
+from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
+from conversation.public_response import sanitize_public_response
 from conversation.repository import (
     ConcurrentConversationUpdate,
     ConversationAlreadyExists,
@@ -240,7 +241,7 @@ class ConversationCoordinator:
                 with trace_step("classify_and_route", agent="TriageRouter"):
                     async for token in graph.task_agent.classify_task_stream(message):
                         tokens.append(token)
-                response = "".join(tokens)
+                response = sanitize_public_response("".join(tokens))
 
                 graph.apply_to_snapshot(snapshot)
                 snapshot.messages.append(SessionMessage(role="agent", content=response))

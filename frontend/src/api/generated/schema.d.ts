@@ -76,6 +76,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{incident_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Incident Messages */
+        get: operations["get_incident_messages_api_incidents__incident_id__messages_get"];
+        put?: never;
+        /** Stream Incident Message */
+        post: operations["stream_incident_message_api_incidents__incident_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/consultation/ask": {
         parameters: {
             query?: never;
@@ -531,6 +549,13 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** CreateMessageRequest */
+        CreateMessageRequest: {
+            /** Message */
+            message: string;
+            /** Request Id */
+            request_id: string;
+        };
         /**
          * DataResponse
          * @description 数据响应模型
@@ -675,6 +700,27 @@ export interface components {
              * @default general
              */
             category: string;
+        };
+        /** MessageListResponse */
+        MessageListResponse: {
+            /** Incident Id */
+            incident_id: string;
+            /** Items */
+            items: components["schemas"]["MessageResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** MessageResponse */
+        MessageResponse: {
+            /** Role */
+            role: string;
+            /** Content */
+            content: string;
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
         };
         /** SearchRequest */
         SearchRequest: {
@@ -938,6 +984,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IncidentTimelineResponse"];
+                };
+            };
+            /** @description Incident not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description State or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_incident_messages_api_incidents__incident_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageListResponse"];
+                };
+            };
+            /** @description Incident not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description State or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    stream_incident_message_api_incidents__incident_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Ordered typed server-sent events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
                 };
             };
             /** @description Incident not found */

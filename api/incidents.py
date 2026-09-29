@@ -1,17 +1,21 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 
 from api.chat_handler import get_conversation_repository
 from api.contracts.incidents import (
     CreateIncidentRequest,
+    CreateMessageRequest,
     IncidentListResponse,
     IncidentResponse,
     IncidentTimelineResponse,
+    MessageListResponse,
 )
 from api.core.exceptions import ErrorResponse
 from conversation.repository import ConversationRepository
 from services.incidents import IncidentService
+from services.incidents.streaming import IncidentStreamingService
 
 router = APIRouter(
     prefix="/api/incidents",
@@ -33,6 +37,17 @@ async def get_incident_service(repository: RepositoryDependency) -> IncidentServ
 
 
 IncidentServiceDependency = Annotated[IncidentService, Depends(get_incident_service)]
+
+
+async def get_incident_streaming_service(
+    repository: RepositoryDependency,
+) -> IncidentStreamingService:
+    return IncidentStreamingService(repository)
+
+
+IncidentStreamingDependency = Annotated[
+    IncidentStreamingService, Depends(get_incident_streaming_service)
+]
 
 
 @router.get("", response_model=IncidentListResponse)
@@ -57,3 +72,37 @@ async def get_incident_events(
     incident_id: str, service: IncidentServiceDependency
 ) -> IncidentTimelineResponse:
     return await service.get_timeline(incident_id)
+
+
+@router.get("/{incident_id}/messages", response_model=MessageListResponse)
+async def get_incident_messages(
+    incident_id: str, service: IncidentServiceDependency
+) -> MessageListResponse:
+    return await service.get_messages(incident_id)
+
+
+@router.post(
+    "/{incident_id}/messages",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Ordered typed server-sent events",
+            "content": {"text/event-stream": {}},
+        }
+    },
+)
+async def stream_incident_message(
+    incident_id: str,
+    request: CreateMessageRequest,
+    service: IncidentServiceDependency,
+    streaming: IncidentStreamingDependency,
+) -> StreamingResponse:
+    await service.get_incident(incident_id)
+    return StreamingResponse(
+        streaming.stream_message(incident_id, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

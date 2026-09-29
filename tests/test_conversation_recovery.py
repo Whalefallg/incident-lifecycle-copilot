@@ -4,6 +4,7 @@ from agents.task_classification.state_manager import StateManager
 from api.chat_handler import ConversationCoordinator
 from config.constants import StateEnum
 from conversation.models import ConversationSnapshot, EscalationContext
+from conversation.public_response import sanitize_public_response
 from conversation.repository import (
     ConcurrentConversationUpdate,
     IdempotencyKeyMismatch,
@@ -141,6 +142,16 @@ def test_snapshot_json_round_trip_preserves_typed_state():
     restored = ConversationSnapshot.from_json_payload(snapshot.json_payload())
     assert restored == snapshot
     assert restored.current_state is StateEnum.ESCALATION
+
+
+def test_private_thought_markers_are_removed_from_public_response():
+    response = sanitize_public_response(
+        "[THOUGHT][Agent] internal routing rationale\n"
+        "[REPLY][Agent] Engineer-facing answer\n"
+        "[STATE] escalation"
+    )
+    assert response == "Engineer-facing answer\nescalation"
+    assert "internal routing rationale" not in response
 
 
 class AlwaysConflictingRepository(InMemoryConversationRepository):

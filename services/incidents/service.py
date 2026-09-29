@@ -4,6 +4,8 @@ from api.contracts.incidents import (
     CreateIncidentRequest,
     IncidentEventResponse,
     IncidentListResponse,
+    MessageListResponse,
+    MessageResponse,
     IncidentResponse,
     IncidentTimelineResponse,
 )
@@ -77,6 +79,18 @@ class IncidentService:
             for event in build_timeline(snapshot.events)
         ]
         return IncidentTimelineResponse(incident_id=incident_id, items=items, total=len(items))
+
+    async def get_messages(self, incident_id: str) -> MessageListResponse:
+        snapshot = await self._required(incident_id)
+        items = [
+            MessageResponse(
+                role=message.role,
+                content=message.content,
+                timestamp=message.timestamp,
+            )
+            for message in snapshot.messages
+        ]
+        return MessageListResponse(incident_id=incident_id, items=items, total=len(items))
 
     async def _required(self, incident_id: str) -> ConversationSnapshot:
         snapshot = await self.repository.load(incident_id)

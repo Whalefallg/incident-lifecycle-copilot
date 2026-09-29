@@ -5,6 +5,7 @@ export type IncidentList = components["schemas"]["IncidentListResponse"];
 export type IncidentTimeline = components["schemas"]["IncidentTimelineResponse"];
 export type IncidentEvent = components["schemas"]["IncidentEventResponse"];
 export type CreateIncidentInput = components["schemas"]["CreateIncidentRequest"];
+export type MessageList = components["schemas"]["MessageListResponse"];
 export type ErrorResponse = components["schemas"]["ErrorResponse"];
 
 export class ApiError extends Error {
@@ -45,6 +46,10 @@ export const api = {
   getIncidentTimeline: (incidentId: string) =>
     requestJson<IncidentTimeline>(
       `/api/incidents/${encodeURIComponent(incidentId)}/events`,
+    ),
+  getIncidentMessages: (incidentId: string) =>
+    requestJson<MessageList>(
+      `/api/incidents/${encodeURIComponent(incidentId)}/messages`,
     ),
   createIncident: (input: CreateIncidentInput) =>
     requestJson<Incident>("/api/incidents", {
