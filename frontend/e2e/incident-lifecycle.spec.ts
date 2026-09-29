@@ -38,14 +38,14 @@ async function installFixtureApi(page: Page) {
       const reply = lower.includes("stakeholder") ? "Stakeholder update: checkout errors are contained." : lower.includes("resolve") ? "Incident resolved. Postmortem draft generated." : "Retrieved the checkout timeout runbook.";
       messages.push({ role: "engineer", content: payload.message, timestamp: now }, { role: "assistant", content: reply, timestamp: now });
       const envelope = (type: string, sequence: number, eventPayload: object) => `data: ${JSON.stringify({ event_id: `stream-${sequence}`, incident_id: "INC-E2E", request_id: payload.request_id, sequence, timestamp: now, type, payload: eventPayload })}\n\n`;
-      const body = envelope("request.started", 1, {}) + envelope("agent.started", 2, { agent: "FixtureAgent" }) + envelope("message.delta", 3, { text: reply }) + (draftReady ? envelope("postmortem.generated", 4, { draft_id: draft.draft_id, version: 1 }) : "") + envelope("request.completed", draftReady ? 5 : 4, { revision: messages.length });
+      const body = envelope("request.started", 1, {}) + envelope("message.completed", 2, { text: reply }) + (draftReady ? envelope("postmortem.generated", 3, { draft_id: draft.draft_id, version: 1 }) : "") + envelope("request.completed", draftReady ? 4 : 3, { revision: messages.length });
       return route.fulfill({ status: 200, contentType: "text/event-stream", body });
     }
     return json(route, { error: { code: "NOT_FOUND", message: path, request_id: "e2e", details: {} } }, 404);
   });
 }
 
-test("runs the incident lifecycle with fixture model and RAG data", async ({ page }) => {
+test("runs the frontend lifecycle against a mocked API", async ({ page }) => {
   await installFixtureApi(page);
   await page.goto("/incidents");
   await page.getByRole("button", { name: "New demo incident" }).click();
