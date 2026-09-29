@@ -40,7 +40,7 @@ def test_cache_clear_requires_admin_token():
 def test_knowledge_mutation_requires_admin_token():
     with TestClient(app) as client:
         response = client.post(
-            "/api/knowledge/",
+            "/api/legacy/knowledge/",
             json={"question": "q", "answer": "a", "category": "demo"},
         )
 

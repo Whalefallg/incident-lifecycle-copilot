@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from api.core.security import require_admin
 
-router = APIRouter(prefix="/api/knowledge", tags=["知识库管理"])
+router = APIRouter(prefix="/api/legacy/knowledge", tags=["Legacy Knowledge API"])
 
 
 class KnowledgeItem(BaseModel):
@@ -18,10 +18,6 @@ class KnowledgeItem(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
-
-
-class DraftDecision(BaseModel):
-    actor: str = Field(min_length=1, max_length=200)
 
 
 @router.get("/")
@@ -49,66 +45,6 @@ async def get_all_knowledge():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取知识库失败: {str(e)}")
-
-
-@router.get("/drafts/{session_id}")
-async def list_postmortem_drafts(session_id: str):
-    """List persisted postmortem drafts and their approval audit fields."""
-    from api.chat_handler import get_conversation_repository
-
-    snapshot = await (await get_conversation_repository()).load(session_id)
-    if not snapshot:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return {"drafts": snapshot.postmortem_context.drafts}
-
-
-async def _transition_draft(session_id: str, draft_id: str, action: str, actor: str):
-    from api.chat_handler import get_conversation_repository
-    from conversation.repository import ConcurrentConversationUpdate
-    from knowledge.approval import transition_draft
-
-    repository = await get_conversation_repository()
-    for attempt in range(3):
-        snapshot = await repository.load(session_id)
-        if not snapshot:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        draft = next(
-            (item for item in snapshot.postmortem_context.drafts if item.draft_id == draft_id),
-            None,
-        )
-        if not draft:
-            raise HTTPException(status_code=404, detail="Draft not found")
-
-        try:
-            transition_draft(draft, action, actor)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=409,
-                detail=str(exc),
-            ) from exc
-        try:
-            await repository.save(snapshot, snapshot.revision)
-            return draft
-        except ConcurrentConversationUpdate as exc:
-            if attempt == 2:
-                raise HTTPException(
-                    status_code=409, detail="Concurrent draft update"
-                ) from exc
-
-
-@router.post("/drafts/{session_id}/{draft_id}/review", dependencies=[Depends(require_admin)])
-async def review_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
-    return await _transition_draft(session_id, draft_id, "review", decision.actor)
-
-
-@router.post("/drafts/{session_id}/{draft_id}/approve", dependencies=[Depends(require_admin)])
-async def approve_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
-    return await _transition_draft(session_id, draft_id, "approve", decision.actor)
-
-
-@router.post("/drafts/{session_id}/{draft_id}/reject", dependencies=[Depends(require_admin)])
-async def reject_postmortem_draft(session_id: str, draft_id: str, decision: DraftDecision):
-    return await _transition_draft(session_id, draft_id, "reject", decision.actor)
 
 
 @router.get("/{knowledge_id}")
