@@ -2,17 +2,22 @@
 
 ## Local production-shaped run
 
+Prerequisites are Python 3.11+, Node.js 22+, npm, and credentials for one supported chat model. `RAG_MODE=local` uses deterministic runbooks and does not require `rag-as-mcp`, Redis, an embedding API, or `sentence-transformers`; Agent execution still requires the configured chat model.
+
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-production.txt
+cp .env.example .env
+
+# Edit .env and configure MODEL_PROVIDER plus its chat-model credentials.
 
 cd frontend
 npm ci
 npm run build
 cd ..
 
-RAG_MODE=local REDIS_STATE_ENABLED=false uvicorn app:app --port 8000
+uvicorn app:app --port 8000
 ```
 
 Open `http://127.0.0.1:8000`, create a demo incident, then use the workspace to request a runbook, draft a stakeholder update, resolve the incident, and inspect the postmortem. Direct routes such as `/incidents/INC-DEMO` are handled by the SPA fallback. The legacy interface remains available at `/legacy`.
@@ -36,3 +41,5 @@ During a request, the UI consumes typed SSE. The current implementation reports 
 - The Docker job builds the production image, starts FastAPI, and smoke-checks `/`, `/incidents`, `/incidents/INC-SPA`, `/api/monitoring/health`, and `/legacy`.
 
 Use `RAG_MODE=mcp` only when a compatible `rag-as-mcp` checkout and Python environment are configured. The upstream interface currently supports querying but not ingestion, so an approved knowledge draft remains `APPROVED` unless a real `KnowledgeIngestor` is supplied.
+
+Redis is optional for this walkthrough. Enable `REDIS_STATE_ENABLED=true` only when demonstrating cross-worker recovery and revision CAS. `ADMIN_TOKEN` is a local application token, not a third-party secret; it is needed only for knowledge review, approval, and rejection mutations. With the example value, enter actor `developer` and admin token `dev-admin` in Knowledge Review.
