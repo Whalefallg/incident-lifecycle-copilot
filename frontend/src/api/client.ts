@@ -8,6 +8,9 @@ export type CreateIncidentInput = components["schemas"]["CreateIncidentRequest"]
 export type MessageList = components["schemas"]["MessageListResponse"];
 export type TraceList = components["schemas"]["TraceListResponse"];
 export type RunbookList = components["schemas"]["RunbookListResponse"];
+export type Postmortem = components["schemas"]["PostmortemResponse"];
+export type KnowledgeDraft = components["schemas"]["KnowledgeDraftResponse"];
+export type KnowledgeDraftList = components["schemas"]["KnowledgeDraftListResponse"];
 export type ErrorResponse = components["schemas"]["ErrorResponse"];
 
 export class ApiError extends Error {
@@ -58,6 +61,26 @@ export const api = {
   getIncidentRunbooks: (incidentId: string) =>
     requestJson<RunbookList>(
       `/api/incidents/${encodeURIComponent(incidentId)}/runbooks`,
+    ),
+  getIncidentPostmortem: (incidentId: string) =>
+    requestJson<Postmortem>(
+      `/api/incidents/${encodeURIComponent(incidentId)}/postmortem`,
+    ),
+  listKnowledgeDrafts: () =>
+    requestJson<KnowledgeDraftList>("/api/knowledge/drafts"),
+  transitionKnowledgeDraft: (
+    draftId: string,
+    action: "review" | "approve" | "reject",
+    actor: string,
+    adminToken: string,
+  ) =>
+    requestJson<KnowledgeDraft>(
+      `/api/knowledge/drafts/${encodeURIComponent(draftId)}/${action}`,
+      {
+        method: "POST",
+        headers: { "X-Admin-Token": adminToken },
+        body: JSON.stringify({ actor }),
+      },
     ),
   createIncident: (input: CreateIncidentInput) =>
     requestJson<Incident>("/api/incidents", {

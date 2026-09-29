@@ -4,11 +4,12 @@ from api.contracts.incidents import (
     CreateIncidentRequest,
     IncidentEventResponse,
     IncidentListResponse,
-    MessageListResponse,
-    MessageResponse,
     IncidentResponse,
     IncidentTimelineResponse,
+    MessageListResponse,
+    MessageResponse,
 )
+from api.contracts.knowledge import KnowledgeDraftResponse, PostmortemResponse
 from api.contracts.observability import (
     RequestTraceResponse,
     RetrievalSummaryResponse,
@@ -75,17 +76,7 @@ class IncidentService:
     async def get_timeline(self, incident_id: str) -> IncidentTimelineResponse:
         snapshot = await self._required(incident_id)
         items = [
-            IncidentEventResponse(
-                event_id=event.event_id,
-                incident_id=event.incident_id or incident_id,
-                type=event.type,
-                timestamp=event.timestamp,
-                actor=event.actor,
-                source=event.source,
-                request_id=event.request_id,
-                payload=event.payload,
-            )
-            for event in build_timeline(snapshot.events)
+            self._event_response(event, incident_id) for event in build_timeline(snapshot.events)
         ]
         return IncidentTimelineResponse(incident_id=incident_id, items=items, total=len(items))
 
@@ -101,6 +92,26 @@ class IncidentService:
         ]
         return MessageListResponse(incident_id=incident_id, items=items, total=len(items))
 
+    async def get_postmortem(self, incident_id: str) -> PostmortemResponse:
+        snapshot = await self._required(incident_id)
+        timeline = [
+            self._event_response(event, incident_id) for event in build_timeline(snapshot.events)
+        ]
+        latest = max(
+            snapshot.postmortem_context.drafts,
+            key=lambda item: item.version,
+            default=None,
+        )
+        return PostmortemResponse(
+            incident_id=incident_id,
+            factual_timeline=timeline,
+            generated_analysis=(
+                KnowledgeDraftResponse.model_validate(latest, from_attributes=True)
+                if latest is not None
+                else None
+            ),
+        )
+
     async def get_trace(self, incident_id: str) -> TraceListResponse:
         snapshot = await self._required(incident_id)
         items = [
@@ -109,7 +120,10 @@ class IncidentService:
                 request_id=trace.request_id,
                 started_at=trace.started_at,
                 completed_at=trace.completed_at,
-                steps=[TraceStepResponse.model_validate(step, from_attributes=True) for step in trace.steps],
+                steps=[
+                    TraceStepResponse.model_validate(step, from_attributes=True)
+                    for step in trace.steps
+                ],
                 retrievals=[
                     RetrievalSummaryResponse(
                         retrieval_id=retrieval.retrieval_id,
@@ -151,13 +165,28 @@ class IncidentService:
         return snapshot
 
     @staticmethod
+    def _event_response(event: IncidentEvent, incident_id: str) -> IncidentEventResponse:
+        return IncidentEventResponse(
+            event_id=event.event_id,
+            incident_id=event.incident_id or incident_id,
+            type=event.type,
+            timestamp=event.timestamp,
+            actor=event.actor,
+            source=event.source,
+            request_id=event.request_id,
+            payload=event.payload,
+        )
+
+    @staticmethod
     def _to_response(snapshot: ConversationSnapshot) -> IncidentResponse:
         resolved = any(
             event.type is IncidentEventType.INCIDENT_RESOLVED for event in snapshot.events
         )
         status = "resolved" if resolved else snapshot.incident.status
         service = snapshot.escalation_context.service
-        title = snapshot.incident.title or (f"{service} incident" if service else snapshot.session_id)
+        title = snapshot.incident.title or (
+            f"{service} incident" if service else snapshot.session_id
+        )
         return IncidentResponse(
             incident_id=snapshot.session_id,
             title=title,

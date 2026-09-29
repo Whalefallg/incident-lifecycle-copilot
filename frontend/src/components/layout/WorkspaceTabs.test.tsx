@@ -6,7 +6,7 @@ import { WorkspaceTabs } from "./WorkspaceTabs";
 describe("WorkspaceTabs", () => {
   it("announces the selected view and timeline count", () => {
     const onSelect = vi.fn();
-    render(<WorkspaceTabs selected="conversation" timelineCount={3} runbookCount={1} traceCount={2} onSelect={onSelect} />);
+    render(<WorkspaceTabs selected="conversation" timelineCount={3} runbookCount={1} traceCount={2} postmortemCount={1} onSelect={onSelect} />);
     expect(screen.getByRole("tab", { name: "Conversation" })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("tab", { name: "Timeline (3)" }));
     expect(onSelect).toHaveBeenCalledWith("timeline");

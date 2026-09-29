@@ -128,6 +128,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{incident_id}/postmortem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Incident Postmortem */
+        get: operations["get_incident_postmortem_api_incidents__incident_id__postmortem_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/consultation/ask": {
         parameters: {
             query?: never;
@@ -305,6 +322,57 @@ export interface paths {
          * @description 搜索知识库
          */
         post: operations["search_knowledge_api_knowledge_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_knowledge_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/drafts/item/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_knowledge_drafts_item__draft_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/drafts/{draft_id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition */
+        post: operations["transition_api_knowledge_drafts__draft_id___action__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -614,7 +682,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "CONVERSATION_CONFLICT" | "IDEMPOTENCY_MISMATCH" | "REQUEST_IN_PROGRESS" | "INCIDENT_ALREADY_EXISTS" | "RAG_UNAVAILABLE" | "AGENT_EXECUTION_ERROR" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "CONVERSATION_CONFLICT" | "IDEMPOTENCY_MISMATCH" | "REQUEST_IN_PROGRESS" | "INCIDENT_ALREADY_EXISTS" | "RAG_UNAVAILABLE" | "AGENT_EXECUTION_ERROR" | "KNOWLEDGE_TRANSITION_CONFLICT" | "INTERNAL_ERROR";
         /** ErrorDetail */
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
@@ -721,6 +789,52 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** KnowledgeDecisionRequest */
+        KnowledgeDecisionRequest: {
+            /** Actor */
+            actor: string;
+        };
+        /** KnowledgeDraftListResponse */
+        KnowledgeDraftListResponse: {
+            /** Items */
+            items: components["schemas"]["KnowledgeDraftResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** KnowledgeDraftResponse */
+        KnowledgeDraftResponse: {
+            /** Draft Id */
+            draft_id: string;
+            /** Source Incident Id */
+            source_incident_id: string;
+            /** Version */
+            version: number;
+            /** Content */
+            content: string;
+            /** Content Hash */
+            content_hash: string;
+            status: components["schemas"]["KnowledgeDraftStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Approved By */
+            approved_by: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Ingested At */
+            ingested_at: string | null;
+        };
+        /**
+         * KnowledgeDraftStatus
+         * @enum {string}
+         */
+        KnowledgeDraftStatus: "draft" | "reviewed" | "approved" | "ingested" | "rejected";
         /** KnowledgeItem */
         KnowledgeItem: {
             /** Id */
@@ -755,6 +869,14 @@ export interface components {
              * Format: date-time
              */
             timestamp: string;
+        };
+        /** PostmortemResponse */
+        PostmortemResponse: {
+            /** Incident Id */
+            incident_id: string;
+            /** Factual Timeline */
+            factual_timeline: components["schemas"]["IncidentEventResponse"][];
+            generated_analysis: components["schemas"]["KnowledgeDraftResponse"] | null;
         };
         /** RequestTraceResponse */
         RequestTraceResponse: {
@@ -1394,6 +1516,64 @@ export interface operations {
             };
         };
     };
+    get_incident_postmortem_api_incidents__incident_id__postmortem_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostmortemResponse"];
+                };
+            };
+            /** @description Incident not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description State or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     ask_consultation_api_consultation_ask_post: {
         parameters: {
             query?: never;
@@ -1781,6 +1961,149 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_drafts_api_knowledge_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_draft_api_knowledge_drafts_item__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_api_knowledge_drafts__draft_id___action__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-token"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                action: "review" | "approve" | "reject";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */

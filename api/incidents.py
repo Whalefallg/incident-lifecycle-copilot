@@ -12,8 +12,9 @@ from api.contracts.incidents import (
     IncidentTimelineResponse,
     MessageListResponse,
 )
-from api.core.exceptions import ErrorResponse
+from api.contracts.knowledge import PostmortemResponse
 from api.contracts.observability import RunbookListResponse, TraceListResponse
+from api.core.exceptions import ErrorResponse
 from conversation.repository import ConversationRepository
 from services.incidents import IncidentService
 from services.incidents.streaming import IncidentStreamingService
@@ -94,6 +95,13 @@ async def get_incident_runbooks(
     incident_id: str, service: IncidentServiceDependency
 ) -> RunbookListResponse:
     return await service.get_runbooks(incident_id)
+
+
+@router.get("/{incident_id}/postmortem", response_model=PostmortemResponse)
+async def get_incident_postmortem(
+    incident_id: str, service: IncidentServiceDependency
+) -> PostmortemResponse:
+    return await service.get_postmortem(incident_id)
 
 
 @router.post(

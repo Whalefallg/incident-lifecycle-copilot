@@ -57,7 +57,7 @@ export function reduceStreamState(state: StreamState, event: StreamEvent): Strea
   return next;
 }
 
-export type WorkspaceTab = "conversation" | "timeline" | "runbooks" | "trace";
+export type WorkspaceTab = "conversation" | "timeline" | "runbooks" | "trace" | "postmortem";
 
 interface WorkspaceState {
   sidebarCollapsed: boolean;

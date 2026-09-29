@@ -4,6 +4,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { IncidentListPage } from "../pages/IncidentListPage";
 import { IncidentWorkspacePage } from "../pages/IncidentWorkspacePage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { KnowledgePage } from "../pages/KnowledgePage";
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +13,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/incidents" replace /> },
       { path: "/incidents", element: <IncidentListPage /> },
       { path: "/incidents/:incidentId", element: <IncidentWorkspacePage /> },
+      { path: "/knowledge", element: <KnowledgePage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
