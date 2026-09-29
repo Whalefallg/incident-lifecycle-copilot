@@ -1,6 +1,12 @@
 from types import SimpleNamespace
 
-from config.request_trace import capture_request_trace, record_retrieval, trace_step
+from config.request_trace import (
+    MAX_RESULT_CONTENT_CHARS,
+    MAX_RETRIEVAL_RESULTS,
+    capture_request_trace,
+    record_retrieval,
+    trace_step,
+)
 from conversation.models import ConversationSnapshot
 from conversation.repository import InMemoryConversationRepository
 from services.incidents import IncidentService
@@ -28,6 +34,30 @@ def test_request_trace_captures_safe_steps_and_structured_retrieval():
     assert request_trace.steps[0].status == "completed"
     assert request_trace.retrievals[0].results[0].document_id == "redis-oom-runbook"
     assert request_trace.model_dump_json().find("reasoning") == -1
+
+
+def test_retrieval_trace_keeps_only_bounded_result_excerpts():
+    results = [
+        SimpleNamespace(
+            document_id=f"runbook-{index}",
+            content="x" * (MAX_RESULT_CONTENT_CHARS + 100),
+            source="fixture",
+            score=1.0,
+            metadata={},
+        )
+        for index in range(MAX_RETRIEVAL_RESULTS + 2)
+    ]
+    with capture_request_trace("request-bounded") as request_trace:
+        record_retrieval(
+            query="bounded evidence",
+            collection="default",
+            duration_ms=1,
+            results=results,
+        )
+
+    captured = request_trace.retrievals[0].results
+    assert len(captured) == MAX_RETRIEVAL_RESULTS
+    assert all(len(item.content) == MAX_RESULT_CONTENT_CHARS for item in captured)
 
 
 async def test_incident_service_exposes_trace_and_runbook_resources():

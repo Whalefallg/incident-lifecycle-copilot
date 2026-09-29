@@ -13,7 +13,7 @@ from agents.consultant_agent import ConsultantAgent
 from agents.escalation_agent import EscalationAgent
 from agents.postmortem_agent import PostmortemAgent
 from agents.task_classification_agent import TaskClassificationAgent
-from config.request_trace import capture_request_trace, trace_step
+from config.request_trace import capture_request_trace
 from conversation.events import IncidentEvent, IncidentEventType
 from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
 from conversation.public_response import sanitize_public_response
@@ -239,9 +239,8 @@ class ConversationCoordinator:
 
                 with capture_request_trace(request_id) as request_trace:
                     tokens: list[str] = []
-                    with trace_step("classify_and_route", agent="TriageRouter"):
-                        async for token in graph.task_agent.classify_task_stream(message):
-                            tokens.append(token)
+                    async for token in graph.task_agent.classify_task_stream(message):
+                        tokens.append(token)
                     response = sanitize_public_response("".join(tokens))
                     graph.apply_to_snapshot(snapshot)
                 snapshot.request_traces = [

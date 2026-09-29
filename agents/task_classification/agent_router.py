@@ -10,6 +10,9 @@ Routing table:
 """
 
 from typing import Any, AsyncGenerator, Optional
+
+from config.request_trace import trace_step
+
 from .state_manager import StateManager
 
 
@@ -57,8 +60,9 @@ class AgentRouter:
             )
         yield "[THOUGHT][Triage Router] P0/P1 incident detected — routing to Escalation Agent for impact assessment and on-call dispatch."
         try:
-            async for token in self.escalation_agent.run_stream(user_input=task):
-                yield token
+            with trace_step("incident_escalation", agent="EscalationAgent"):
+                async for token in self.escalation_agent.run_stream(user_input=task):
+                    yield token
             if getattr(self.escalation_agent, "workflow_complete", False):
                 self.state_manager.reset_to_classify()
         except Exception as e:
@@ -96,8 +100,9 @@ class AgentRouter:
         self.state_manager.transition_to_comms_drafting()
         yield "[THOUGHT][Triage Router] Stakeholder update requested — routing to Communication Agent."
         try:
-            async for token in self.communication_agent.draft_stream(task):
-                yield token
+            with trace_step("stakeholder_update", agent="CommunicationAgent"):
+                async for token in self.communication_agent.draft_stream(task):
+                    yield token
             if self.event_sink:
                 from conversation.events import IncidentEventType
                 self.event_sink(
@@ -129,8 +134,9 @@ class AgentRouter:
             )
         yield "[THOUGHT][Triage Router] Incident resolved — routing to Postmortem Agent to reconstruct timeline and generate draft."
         try:
-            async for token in self.postmortem_agent.generate_stream(task):
-                yield token
+            with trace_step("postmortem_generation", agent="PostmortemAgent"):
+                async for token in self.postmortem_agent.generate_stream(task):
+                    yield token
             self.state_manager.reset_to_classify()
         except Exception as e:
             yield f"[ERROR] Postmortem generation failed: {e}"
@@ -153,17 +159,20 @@ class AgentRouter:
     async def route_by_state(self, task: str) -> AsyncGenerator[str, None]:
         """Continue processing based on current conversation state."""
         if self.state_manager.is_in_escalation_flow():
-            async for token in self.escalation_agent.run_stream(user_input=task):
-                yield token
+            with trace_step("incident_escalation", agent="EscalationAgent"):
+                async for token in self.escalation_agent.run_stream(user_input=task):
+                    yield token
         elif self.state_manager.is_in_runbook_flow():
             async for token in self.consultant_agent.consult_stream(task):
                 yield token
         elif self.state_manager.is_in_comms_flow():
-            async for token in self.communication_agent.draft_stream(task):
-                yield token
+            with trace_step("stakeholder_update", agent="CommunicationAgent"):
+                async for token in self.communication_agent.draft_stream(task):
+                    yield token
         elif self.state_manager.is_in_postmortem_flow():
-            async for token in self.postmortem_agent.generate_stream(task):
-                yield token
+            with trace_step("postmortem_generation", agent="PostmortemAgent"):
+                async for token in self.postmortem_agent.generate_stream(task):
+                    yield token
         else:
             self.state_manager.reset_to_classify()
             yield "[ERROR] Session state inconsistency — reset. Please re-send your message."
