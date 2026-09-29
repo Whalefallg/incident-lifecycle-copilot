@@ -27,7 +27,7 @@ export function AppShell() {
         <nav>
           <NavLink to="/incidents">{sidebarCollapsed ? "IN" : "Incidents"}</NavLink>
           <NavLink to="/knowledge">{sidebarCollapsed ? "KN" : "Knowledge"}</NavLink>
-          <span aria-disabled="true">{sidebarCollapsed ? "OB" : "Observability"}</span>
+          <NavLink to="/observability">{sidebarCollapsed ? "OB" : "Observability"}</NavLink>
         </nav>
       </aside>
       <main className="main-content">

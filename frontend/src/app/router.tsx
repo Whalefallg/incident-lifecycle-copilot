@@ -5,6 +5,7 @@ import { IncidentListPage } from "../pages/IncidentListPage";
 import { IncidentWorkspacePage } from "../pages/IncidentWorkspacePage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { KnowledgePage } from "../pages/KnowledgePage";
+import { ObservabilityPage } from "../pages/ObservabilityPage";
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
       { path: "/incidents", element: <IncidentListPage /> },
       { path: "/incidents/:incidentId", element: <IncidentWorkspacePage /> },
       { path: "/knowledge", element: <KnowledgePage /> },
+      { path: "/observability", element: <ObservabilityPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

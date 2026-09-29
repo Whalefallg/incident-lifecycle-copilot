@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "generate:api": "python3 ../scripts/export_openapi.py .openapi.json && openapi-typescript .openapi.json -o src/api/generated/schema.d.ts && rm .openapi.json"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.10.0",

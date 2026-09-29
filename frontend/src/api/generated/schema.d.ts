@@ -185,6 +185,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/knowledge/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Drafts */
+        get: operations["list_drafts_api_knowledge_drafts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/drafts/item/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_knowledge_drafts_item__draft_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/knowledge/drafts/{draft_id}/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition */
+        post: operations["transition_api_knowledge_drafts__draft_id___action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/knowledge/": {
         parameters: {
             query?: never;
@@ -322,57 +373,6 @@ export interface paths {
          * @description 搜索知识库
          */
         post: operations["search_knowledge_api_knowledge_search_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Drafts */
-        get: operations["list_drafts_api_knowledge_drafts_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts/item/{draft_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Draft */
-        get: operations["get_draft_api_knowledge_drafts_item__draft_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts/{draft_id}/{action}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Transition */
-        post: operations["transition_api_knowledge_drafts__draft_id___action__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -519,7 +519,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/": {
+    "/legacy": {
         parameters: {
             query?: never;
             header?: never;
@@ -527,10 +527,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * 主页
+         * Legacy chat UI
          * @description Incident Lifecycle Copilot 主界面
          */
-        get: operations["read_root__get"];
+        get: operations["read_root_legacy_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -539,7 +539,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/chat/stream": {
+    "/legacy/chat/stream": {
         parameters: {
             query?: never;
             header?: never;
@@ -552,14 +552,14 @@ export interface paths {
          * 流式聊天
          * @description 处理流式聊天请求
          */
-        post: operations["chat_stream_endpoint_chat_stream_post"];
+        post: operations["chat_stream_endpoint_legacy_chat_stream_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/chat": {
+    "/legacy/chat": {
         parameters: {
             query?: never;
             header?: never;
@@ -572,14 +572,14 @@ export interface paths {
          * 兼容性聊天接口
          * @description 兼容性聊天接口，建议使用/chat/stream
          */
-        post: operations["chat_endpoint_chat_post"];
+        post: operations["chat_endpoint_legacy_chat_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/chat/session": {
+    "/legacy/chat/session": {
         parameters: {
             query?: never;
             header?: never;
@@ -590,13 +590,13 @@ export interface paths {
         put?: never;
         post?: never;
         /** 重置当前事故会话 */
-        delete: operations["reset_chat_session_chat_session_delete"];
+        delete: operations["reset_chat_session_legacy_chat_session_delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/knowledge": {
+    "/legacy/knowledge": {
         parameters: {
             query?: never;
             header?: never;
@@ -607,7 +607,7 @@ export interface paths {
          * 知识库管理页面
          * @description Runbook & postmortem knowledge base management page
          */
-        get: operations["knowledge_page_knowledge_get"];
+        get: operations["knowledge_page_legacy_knowledge_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -703,6 +703,16 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthResponse */
+        HealthResponse: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "healthy";
+            /** Service */
+            service: string;
         };
         /** IncidentEventResponse */
         IncidentEventResponse: {
@@ -878,6 +888,24 @@ export interface components {
             factual_timeline: components["schemas"]["IncidentEventResponse"][];
             generated_analysis: components["schemas"]["KnowledgeDraftResponse"] | null;
         };
+        /** RedisInfoResponse */
+        RedisInfoResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            /** Redis Version */
+            redis_version?: string | null;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+            /** Db Size */
+            db_size?: number | null;
+            /** Used Memory Human */
+            used_memory_human?: string | null;
+            /** Error */
+            error?: string | null;
+        };
         /** RequestTraceResponse */
         RequestTraceResponse: {
             /** Trace Id */
@@ -964,6 +992,26 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "classify" | "other" | "escalation" | "runbook_lookup" | "comms_drafting" | "postmortem";
+        /** SystemStatsResponse */
+        SystemStatsResponse: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "error";
+            /** Cache */
+            cache?: {
+                [key: string]: unknown;
+            } | null;
+            /** Model Routing */
+            model_routing?: {
+                [key: string]: unknown;
+            } | null;
+            /** Estimated Total Savings Percent */
+            estimated_total_savings_percent?: number | null;
+            /** Error */
+            error?: string | null;
+        };
         /** TaskClassificationRequest */
         TaskClassificationRequest: {
             /** Text */
@@ -1640,6 +1688,149 @@ export interface operations {
             };
         };
     };
+    list_drafts_api_knowledge_drafts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_draft_api_knowledge_drafts_item__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_api_knowledge_drafts__draft_id___action__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-admin-token"?: string | null;
+            };
+            path: {
+                draft_id: string;
+                action: "review" | "approve" | "reject";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_all_knowledge_api_knowledge__get: {
         parameters: {
             query?: never;
@@ -1974,149 +2165,6 @@ export interface operations {
             };
         };
     };
-    list_drafts_api_knowledge_drafts_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeDraftListResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    get_draft_api_knowledge_drafts_item__draft_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                draft_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    transition_api_knowledge_drafts__draft_id___action__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-admin-token"?: string | null;
-            };
-            path: {
-                draft_id: string;
-                action: "review" | "approve" | "reject";
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KnowledgeDecisionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KnowledgeDraftResponse"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     health_check_api_monitoring_health_get: {
         parameters: {
             query?: never;
@@ -2132,9 +2180,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["HealthResponse"];
                 };
             };
         };
@@ -2253,9 +2299,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RedisInfoResponse"];
                 };
             };
         };
@@ -2275,14 +2319,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["SystemStatsResponse"];
                 };
             };
         };
     };
-    read_root__get: {
+    read_root_legacy_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2302,7 +2344,7 @@ export interface operations {
             };
         };
     };
-    chat_stream_endpoint_chat_stream_post: {
+    chat_stream_endpoint_legacy_chat_stream_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2335,7 +2377,7 @@ export interface operations {
             };
         };
     };
-    chat_endpoint_chat_post: {
+    chat_endpoint_legacy_chat_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2368,7 +2410,7 @@ export interface operations {
             };
         };
     };
-    reset_chat_session_chat_session_delete: {
+    reset_chat_session_legacy_chat_session_delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -2388,7 +2430,7 @@ export interface operations {
             };
         };
     };
-    knowledge_page_knowledge_get: {
+    knowledge_page_legacy_knowledge_get: {
         parameters: {
             query?: never;
             header?: never;

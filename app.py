@@ -14,6 +14,7 @@ Production enhancements:
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -45,6 +46,7 @@ from conversation.repository import (
 )
 from services.incidents import IncidentNotFound
 from web import router as web_router
+from web.spa import SPAStaticFiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -145,6 +147,9 @@ def create_app() -> FastAPI:
     app.include_router(web_router)
 
     app.mount("/static", StaticFiles(directory="web/static"), name="static")
+    frontend_dist = Path(__file__).parent / "frontend" / "dist"
+    if frontend_dist.joinpath("index.html").is_file():
+        app.mount("/", SPAStaticFiles(frontend_dist), name="frontend")
 
     return app
 

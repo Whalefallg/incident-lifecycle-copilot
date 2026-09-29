@@ -11,6 +11,9 @@ export type RunbookList = components["schemas"]["RunbookListResponse"];
 export type Postmortem = components["schemas"]["PostmortemResponse"];
 export type KnowledgeDraft = components["schemas"]["KnowledgeDraftResponse"];
 export type KnowledgeDraftList = components["schemas"]["KnowledgeDraftListResponse"];
+export type Health = components["schemas"]["HealthResponse"];
+export type SystemStats = components["schemas"]["SystemStatsResponse"];
+export type RedisInfo = components["schemas"]["RedisInfoResponse"];
 export type ErrorResponse = components["schemas"]["ErrorResponse"];
 
 export class ApiError extends Error {
@@ -82,6 +85,9 @@ export const api = {
         body: JSON.stringify({ actor }),
       },
     ),
+  getHealth: () => requestJson<Health>("/api/monitoring/health"),
+  getSystemStats: () => requestJson<SystemStats>("/api/monitoring/stats/system"),
+  getRedisInfo: () => requestJson<RedisInfo>("/api/monitoring/redis/info"),
   createIncident: (input: CreateIncidentInput) =>
     requestJson<Incident>("/api/incidents", {
       method: "POST",
