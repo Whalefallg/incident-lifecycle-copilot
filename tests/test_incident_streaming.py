@@ -51,7 +51,7 @@ class SuccessfulCoordinator:
 
 
 @pytest.mark.asyncio
-async def test_stream_orders_committed_workflow_events_and_message_chunks():
+async def test_stream_orders_committed_workflow_events_without_artificial_deltas():
     repository = InMemoryConversationRepository()
     await repository.create(ConversationSnapshot(session_id="INC-1"))
     service = IncidentStreamingService(repository, coordinator_factory=SuccessfulCoordinator)
@@ -67,16 +67,14 @@ async def test_stream_orders_committed_workflow_events_and_message_chunks():
     assert [event["sequence"] for event in events] == list(range(len(events)))
     assert [event["type"] for event in events] == [
         "request.started",
-        "agent.started",
-        "agent.completed",
         "workflow.state_changed",
         "incident.event",
-        "message.delta",
         "message.completed",
         "request.completed",
     ]
-    assert events[3]["payload"] == {"from": "classify", "to": "escalation"}
-    assert events[4]["payload"]["event"]["type"] == "severity_classified"
+    assert events[1]["payload"] == {"from": "classify", "to": "escalation"}
+    assert events[2]["payload"]["event"]["type"] == "severity_classified"
+    assert events[3]["payload"]["text"] == "Escalation started"
     assert events[-1]["payload"]["revision"] == 1
 
 
@@ -102,6 +100,7 @@ async def test_stream_converts_execution_error_to_typed_error_event():
     events = parse_events(chunks)
     assert events[-1]["type"] == "error"
     assert events[-1]["payload"]["code"] == "IDEMPOTENCY_MISMATCH"
+    assert [event["type"] for event in events] == ["request.started", "error"]
 
 
 class StubStreamingService:
