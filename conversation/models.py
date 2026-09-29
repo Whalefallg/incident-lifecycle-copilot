@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from config.constants import StateEnum
 from conversation.events import IncidentEvent
+from conversation.observability import RequestTrace
 from knowledge.approval import KnowledgeDraft
 
 
@@ -72,7 +73,7 @@ class IncidentMetadata(BaseModel):
 class ConversationSnapshot(BaseModel):
     model_config = ConfigDict(use_enum_values=False)
 
-    schema_version: int = 2
+    schema_version: int = 3
     session_id: str
     revision: int = 0
     incident: IncidentMetadata = Field(default_factory=IncidentMetadata)
@@ -84,6 +85,7 @@ class ConversationSnapshot(BaseModel):
     messages: list[SessionMessage] = Field(default_factory=list)
     events: list[IncidentEvent] = Field(default_factory=list)
     processed_requests: dict[str, str] = Field(default_factory=dict)
+    request_traces: list[RequestTrace] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

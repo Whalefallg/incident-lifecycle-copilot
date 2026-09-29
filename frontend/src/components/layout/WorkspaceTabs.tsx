@@ -1,14 +1,23 @@
+import type { WorkspaceTab } from "../../stores/workspaceStore";
+
 interface WorkspaceTabsProps {
-  selected: "conversation" | "timeline";
+  selected: WorkspaceTab;
   timelineCount: number | null;
-  onSelect: (tab: "conversation" | "timeline") => void;
+  runbookCount: number | null;
+  traceCount: number | null;
+  onSelect: (tab: WorkspaceTab) => void;
 }
 
-export function WorkspaceTabs({ selected, timelineCount, onSelect }: WorkspaceTabsProps) {
+export function WorkspaceTabs({ selected, timelineCount, runbookCount, traceCount, onSelect }: WorkspaceTabsProps) {
+  const tabs: Array<{ id: WorkspaceTab; label: string; count: number | null }> = [
+    { id: "conversation", label: "Conversation", count: null },
+    { id: "timeline", label: "Timeline", count: timelineCount },
+    { id: "runbooks", label: "Runbooks", count: runbookCount },
+    { id: "trace", label: "Agent Trace", count: traceCount },
+  ];
   return (
     <div className="workspace-tabs" role="tablist" aria-label="Incident workspace views">
-      <button type="button" role="tab" aria-selected={selected === "conversation"} aria-controls="conversation-panel" id="conversation-tab" onClick={() => onSelect("conversation")}>Conversation</button>
-      <button type="button" role="tab" aria-selected={selected === "timeline"} aria-controls="timeline-panel" id="timeline-tab" onClick={() => onSelect("timeline")}>Timeline{timelineCount === null ? "" : ` (${timelineCount})`}</button>
+      {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={selected === tab.id} aria-controls={`${tab.id}-panel`} id={`${tab.id}-tab`} onClick={() => onSelect(tab.id)}>{tab.label}{tab.count === null ? "" : ` (${tab.count})`}</button>)}
     </div>
   );
 }

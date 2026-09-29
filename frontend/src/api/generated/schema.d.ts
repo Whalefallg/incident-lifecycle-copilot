@@ -94,6 +94,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/incidents/{incident_id}/trace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Incident Trace */
+        get: operations["get_incident_trace_api_incidents__incident_id__trace_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/runbooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Incident Runbooks */
+        get: operations["get_incident_runbooks_api_incidents__incident_id__runbooks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/consultation/ask": {
         parameters: {
             query?: never;
@@ -722,6 +756,82 @@ export interface components {
              */
             timestamp: string;
         };
+        /** RequestTraceResponse */
+        RequestTraceResponse: {
+            /** Trace Id */
+            trace_id: string;
+            /** Request Id */
+            request_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Steps */
+            steps: components["schemas"]["TraceStepResponse"][];
+            /** Retrievals */
+            retrievals: components["schemas"]["RetrievalSummaryResponse"][];
+            /**
+             * Visibility
+             * @default execution_metadata
+             * @constant
+             */
+            visibility: "execution_metadata";
+        };
+        /** RetrievalSummaryResponse */
+        RetrievalSummaryResponse: {
+            /** Retrieval Id */
+            retrieval_id: string;
+            /** Query */
+            query: string;
+            /** Collection */
+            collection: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Result Count */
+            result_count: number;
+        };
+        /** RunbookListResponse */
+        RunbookListResponse: {
+            /** Incident Id */
+            incident_id: string;
+            /** Items */
+            items: components["schemas"]["RunbookRetrievalResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** RunbookResultResponse */
+        RunbookResultResponse: {
+            /** Document Id */
+            document_id: string;
+            /** Content */
+            content: string;
+            /** Source */
+            source: string;
+            /** Score */
+            score: number | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+        };
+        /** RunbookRetrievalResponse */
+        RunbookRetrievalResponse: {
+            /** Retrieval Id */
+            retrieval_id: string;
+            /** Request Id */
+            request_id: string;
+            /** Query */
+            query: string;
+            /** Collection */
+            collection: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Results */
+            results: components["schemas"]["RunbookResultResponse"][];
+        };
         /** SearchRequest */
         SearchRequest: {
             /** Query */
@@ -740,6 +850,30 @@ export interface components {
             context?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** TraceListResponse */
+        TraceListResponse: {
+            /** Incident Id */
+            incident_id: string;
+            /** Items */
+            items: components["schemas"]["RequestTraceResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** TraceStepResponse */
+        TraceStepResponse: {
+            /** Step Id */
+            step_id: string;
+            /** Agent */
+            agent: string;
+            /** Action */
+            action: string;
+            /** Status */
+            status: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Error Type */
+            error_type: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1104,6 +1238,122 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": unknown;
+                };
+            };
+            /** @description Incident not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description State or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_incident_trace_api_incidents__incident_id__trace_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraceListResponse"];
+                };
+            };
+            /** @description Incident not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description State or idempotency conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_incident_runbooks_api_incidents__incident_id__runbooks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunbookListResponse"];
                 };
             };
             /** @description Incident not found */

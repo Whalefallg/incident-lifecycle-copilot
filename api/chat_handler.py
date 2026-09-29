@@ -13,7 +13,7 @@ from agents.consultant_agent import ConsultantAgent
 from agents.escalation_agent import EscalationAgent
 from agents.postmortem_agent import PostmortemAgent
 from agents.task_classification_agent import TaskClassificationAgent
-from config.request_trace import new_trace_id, trace_step
+from config.request_trace import capture_request_trace, trace_step
 from conversation.events import IncidentEvent, IncidentEventType
 from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
 from conversation.public_response import sanitize_public_response
@@ -26,6 +26,7 @@ from conversation.repository import (
 )
 
 MAX_CONVERSATION_RETRIES = int(os.getenv("CONVERSATION_MAX_RETRIES", "3"))
+MAX_REQUEST_TRACES = int(os.getenv("CONVERSATION_MAX_REQUEST_TRACES", "100"))
 
 
 @dataclass
@@ -236,14 +237,17 @@ class ConversationCoordinator:
                     timestamp=user_message.timestamp.isoformat(),
                 )
 
-                new_trace_id()
-                tokens: list[str] = []
-                with trace_step("classify_and_route", agent="TriageRouter"):
-                    async for token in graph.task_agent.classify_task_stream(message):
-                        tokens.append(token)
-                response = sanitize_public_response("".join(tokens))
-
-                graph.apply_to_snapshot(snapshot)
+                with capture_request_trace(request_id) as request_trace:
+                    tokens: list[str] = []
+                    with trace_step("classify_and_route", agent="TriageRouter"):
+                        async for token in graph.task_agent.classify_task_stream(message):
+                            tokens.append(token)
+                    response = sanitize_public_response("".join(tokens))
+                    graph.apply_to_snapshot(snapshot)
+                snapshot.request_traces = [
+                    *snapshot.request_traces,
+                    request_trace,
+                ][-MAX_REQUEST_TRACES:]
                 snapshot.messages.append(SessionMessage(role="agent", content=response))
                 snapshot.processed_requests[request_id] = response
                 try:

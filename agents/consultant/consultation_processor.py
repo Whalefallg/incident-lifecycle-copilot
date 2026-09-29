@@ -6,7 +6,7 @@
 
 from typing import AsyncGenerator
 
-from config.request_trace import trace_step
+from config.request_trace import record_retrieval, trace_step
 
 from .consultation_classifier import ConsultationClassifier
 from .response_generator import ResponseGenerator
@@ -28,8 +28,14 @@ class ConsultationProcessor:
 
     async def process_consultation(self, user_input: str) -> str:
         """处理标准咨询"""
-        with trace_step("knowledge_search", agent="ConsultantAgent"):
+        with trace_step("knowledge_search", agent="ConsultantAgent") as retrieval_step:
             knowledge_docs = await self.retriever.search(user_input, top_k=3)
+        record_retrieval(
+            query=user_input,
+            collection="default",
+            duration_ms=retrieval_step.duration_ms,
+            results=knowledge_docs,
+        )
 
         with trace_step("response_generation", agent="ConsultantAgent"):
             response = await self.response_generator.generate_response(user_input, knowledge_docs)
@@ -40,8 +46,14 @@ class ConsultationProcessor:
         self, user_input: str, session_id: str
     ) -> AsyncGenerator[str, None]:
         """处理流式咨询"""
-        with trace_step("knowledge_search", agent="ConsultantAgent"):
+        with trace_step("knowledge_search", agent="ConsultantAgent") as retrieval_step:
             knowledge_docs = await self.retriever.search(user_input, top_k=3)
+        record_retrieval(
+            query=user_input,
+            collection="default",
+            duration_ms=retrieval_step.duration_ms,
+            results=knowledge_docs,
+        )
 
         with trace_step("response_generation_stream", agent="ConsultantAgent"):
             async for token in self.response_generator.generate_response_stream(

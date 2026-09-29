@@ -20,7 +20,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api import api_routers
+from api import get_api_routers
 from api.core.exceptions import (
     ApiException,
     BusinessException,
@@ -139,7 +139,7 @@ def create_app() -> FastAPI:
         app.add_exception_handler(repository_error, repository_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
 
-    for router in api_routers:
+    for router in get_api_routers():
         app.include_router(router)
 
     app.include_router(web_router)

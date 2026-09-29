@@ -9,6 +9,15 @@ from api.contracts.incidents import (
     IncidentResponse,
     IncidentTimelineResponse,
 )
+from api.contracts.observability import (
+    RequestTraceResponse,
+    RetrievalSummaryResponse,
+    RunbookListResponse,
+    RunbookResultResponse,
+    RunbookRetrievalResponse,
+    TraceListResponse,
+    TraceStepResponse,
+)
 from conversation.events import IncidentEvent, IncidentEventType, build_timeline
 from conversation.models import ConversationSnapshot, EscalationContext, IncidentMetadata
 from conversation.repository import ConversationRepository
@@ -91,6 +100,49 @@ class IncidentService:
             for message in snapshot.messages
         ]
         return MessageListResponse(incident_id=incident_id, items=items, total=len(items))
+
+    async def get_trace(self, incident_id: str) -> TraceListResponse:
+        snapshot = await self._required(incident_id)
+        items = [
+            RequestTraceResponse(
+                trace_id=trace.trace_id,
+                request_id=trace.request_id,
+                started_at=trace.started_at,
+                completed_at=trace.completed_at,
+                steps=[TraceStepResponse.model_validate(step, from_attributes=True) for step in trace.steps],
+                retrievals=[
+                    RetrievalSummaryResponse(
+                        retrieval_id=retrieval.retrieval_id,
+                        query=retrieval.query,
+                        collection=retrieval.collection,
+                        duration_ms=retrieval.duration_ms,
+                        result_count=len(retrieval.results),
+                    )
+                    for retrieval in trace.retrievals
+                ],
+            )
+            for trace in reversed(snapshot.request_traces)
+        ]
+        return TraceListResponse(incident_id=incident_id, items=items, total=len(items))
+
+    async def get_runbooks(self, incident_id: str) -> RunbookListResponse:
+        snapshot = await self._required(incident_id)
+        items = [
+            RunbookRetrievalResponse(
+                retrieval_id=retrieval.retrieval_id,
+                request_id=trace.request_id,
+                query=retrieval.query,
+                collection=retrieval.collection,
+                duration_ms=retrieval.duration_ms,
+                results=[
+                    RunbookResultResponse.model_validate(result, from_attributes=True)
+                    for result in retrieval.results
+                ],
+            )
+            for trace in reversed(snapshot.request_traces)
+            for retrieval in trace.retrievals
+        ]
+        return RunbookListResponse(incident_id=incident_id, items=items, total=len(items))
 
     async def _required(self, incident_id: str) -> ConversationSnapshot:
         snapshot = await self.repository.load(incident_id)

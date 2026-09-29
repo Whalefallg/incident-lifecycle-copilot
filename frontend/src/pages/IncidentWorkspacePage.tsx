@@ -6,8 +6,10 @@ import { AsyncState } from "../components/common/AsyncState";
 import { SeverityBadge } from "../components/common/SeverityBadge";
 import { WorkspaceTabs } from "../components/layout/WorkspaceTabs";
 import { AgentActivityPanel } from "../features/agents/AgentActivityPanel";
+import { TracePanel } from "../features/agents/TracePanel";
 import { ConversationPanel } from "../features/conversation/ConversationPanel";
 import { WorkflowStatePanel } from "../features/incidents/WorkflowStatePanel";
+import { RunbookPanel } from "../features/retrieval/RunbookPanel";
 import { IncidentTimeline } from "../features/timeline/IncidentTimeline";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 
@@ -26,6 +28,8 @@ export function IncidentWorkspacePage() {
     queryFn: () => api.getIncidentTimeline(incidentId),
     enabled: incidentId.length > 0,
   });
+  const runbooks = useQuery({ queryKey: ["incidents", incidentId, "runbooks"], queryFn: () => api.getIncidentRunbooks(incidentId), enabled: incidentId.length > 0 });
+  const traces = useQuery({ queryKey: ["incidents", incidentId, "trace"], queryFn: () => api.getIncidentTrace(incidentId), enabled: incidentId.length > 0 });
 
   if (incident.isPending) return <AsyncState title="Loading incident" description="Restoring the current server snapshot." />;
   if (incident.isError) {
@@ -47,7 +51,7 @@ export function IncidentWorkspacePage() {
         <div><span>Revision</span><strong>{incident.data.revision}</strong></div>
         <div><span>Last update</span><strong>{new Date(incident.data.updated_at).toLocaleString()}</strong></div>
       </section>
-      <WorkspaceTabs selected={selectedTab} timelineCount={timeline.data?.total ?? null} onSelect={selectTab} />
+      <WorkspaceTabs selected={selectedTab} timelineCount={timeline.data?.total ?? null} runbookCount={runbooks.data?.total ?? null} traceCount={traces.data?.total ?? null} onSelect={selectTab} />
       <div className="workspace-grid">
         <div className="workspace-main">
           {selectedTab === "conversation" ? <ConversationPanel incidentId={incidentId} /> : null}
@@ -59,6 +63,8 @@ export function IncidentWorkspacePage() {
               {timeline.data ? <IncidentTimeline events={timeline.data.items} /> : null}
             </section>
           ) : null}
+          {selectedTab === "runbooks" ? <RunbookPanel incidentId={incidentId} /> : null}
+          {selectedTab === "trace" ? <TracePanel incidentId={incidentId} /> : null}
         </div>
         <aside className="context-sidebar" aria-label="Incident context">
           <WorkflowStatePanel state={workflowState} />

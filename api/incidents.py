@@ -13,6 +13,7 @@ from api.contracts.incidents import (
     MessageListResponse,
 )
 from api.core.exceptions import ErrorResponse
+from api.contracts.observability import RunbookListResponse, TraceListResponse
 from conversation.repository import ConversationRepository
 from services.incidents import IncidentService
 from services.incidents.streaming import IncidentStreamingService
@@ -79,6 +80,20 @@ async def get_incident_messages(
     incident_id: str, service: IncidentServiceDependency
 ) -> MessageListResponse:
     return await service.get_messages(incident_id)
+
+
+@router.get("/{incident_id}/trace", response_model=TraceListResponse)
+async def get_incident_trace(
+    incident_id: str, service: IncidentServiceDependency
+) -> TraceListResponse:
+    return await service.get_trace(incident_id)
+
+
+@router.get("/{incident_id}/runbooks", response_model=RunbookListResponse)
+async def get_incident_runbooks(
+    incident_id: str, service: IncidentServiceDependency
+) -> RunbookListResponse:
+    return await service.get_runbooks(incident_id)
 
 
 @router.post(

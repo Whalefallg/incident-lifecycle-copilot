@@ -15,7 +15,6 @@ from conversation.repository import (
     IdempotencyKeyMismatch,
     RequestInProgress,
 )
-from services.incidents import IncidentNotFound
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +139,7 @@ async def repository_exception_handler(request: Request, exc: Exception) -> JSON
     raise exc
 
 
-async def incident_not_found_handler(request: Request, exc: IncidentNotFound) -> JSONResponse:
+async def incident_not_found_handler(request: Request, exc: Exception) -> JSONResponse:
     return _response(
         request,
         status_code=404,

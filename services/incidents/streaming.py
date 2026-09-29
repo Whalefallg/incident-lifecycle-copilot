@@ -22,6 +22,10 @@ from api.contracts.streaming import (
     RequestCompletedEvent,
     RequestCompletedPayload,
     RequestStartedEvent,
+    RetrievalCompletedEvent,
+    RetrievalCompletedPayload,
+    RetrievalStartedEvent,
+    RetrievalStartedPayload,
     StreamErrorEvent,
     StreamEvent,
     WorkflowStateChangedEvent,
@@ -123,6 +127,32 @@ class IncidentStreamingService:
                             IncidentRecordedEvent,
                             IncidentEventPayload(
                                 event=incident_event.model_dump(mode="json")
+                            ),
+                        )
+                    )
+
+            known_retrieval_ids = {
+                retrieval.retrieval_id
+                for trace in before.request_traces
+                for retrieval in trace.retrievals
+            }
+            for trace in after.request_traces:
+                for retrieval in trace.retrievals:
+                    if retrieval.retrieval_id in known_retrieval_ids:
+                        continue
+                    yield serialize_sse(
+                        envelope(
+                            RetrievalStartedEvent,
+                            RetrievalStartedPayload(query=retrieval.query),
+                        )
+                    )
+                    yield serialize_sse(
+                        envelope(
+                            RetrievalCompletedEvent,
+                            RetrievalCompletedPayload(
+                                query=retrieval.query,
+                                result_count=len(retrieval.results),
+                                duration_ms=retrieval.duration_ms,
                             ),
                         )
                     )

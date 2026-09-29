@@ -57,12 +57,14 @@ export function reduceStreamState(state: StreamState, event: StreamEvent): Strea
   return next;
 }
 
+export type WorkspaceTab = "conversation" | "timeline" | "runbooks" | "trace";
+
 interface WorkspaceState {
   sidebarCollapsed: boolean;
-  selectedWorkspaceTab: "conversation" | "timeline";
+  selectedWorkspaceTab: WorkspaceTab;
   streams: Record<string, StreamState>;
   toggleSidebar: () => void;
-  selectWorkspaceTab: (tab: "conversation" | "timeline") => void;
+  selectWorkspaceTab: (tab: WorkspaceTab) => void;
   startStream: (incidentId: string, requestId: string) => void;
   applyStreamEvent: (incidentId: string, event: StreamEvent) => void;
   failStream: (incidentId: string, message: string) => void;
