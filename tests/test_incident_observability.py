@@ -1,5 +1,10 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+import pytest
+
+from agents.task_classification.agent_router import AgentRouter
+from agents.task_classification.state_manager import StateManager
 from config.request_trace import (
     MAX_RESULT_CONTENT_CHARS,
     MAX_RETRIEVAL_RESULTS,
@@ -58,6 +63,30 @@ def test_retrieval_trace_keeps_only_bounded_result_excerpts():
     captured = request_trace.retrievals[0].results
     assert len(captured) == MAX_RETRIEVAL_RESULTS
     assert all(len(item.content) == MAX_RESULT_CONTENT_CHARS for item in captured)
+
+
+@pytest.mark.asyncio
+async def test_trace_records_the_specialist_that_actually_handles_the_request():
+    communication_agent = MagicMock()
+
+    async def draft_stream(_task):
+        yield "status update"
+
+    communication_agent.draft_stream = draft_stream
+    router = AgentRouter(
+        MagicMock(),
+        MagicMock(),
+        StateManager(),
+        communication_agent=communication_agent,
+    )
+
+    with capture_request_trace("request-comms") as request_trace:
+        output = [token async for token in router.route_to_comms("draft an update")]
+
+    assert "status update" in output
+    assert [(step.agent, step.action) for step in request_trace.steps] == [
+        ("CommunicationAgent", "stakeholder_update")
+    ]
 
 
 async def test_incident_service_exposes_trace_and_runbook_resources():

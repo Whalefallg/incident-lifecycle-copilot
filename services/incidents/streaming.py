@@ -102,9 +102,7 @@ class IncidentStreamingService:
                     yield serialize_sse(
                         envelope(
                             IncidentRecordedEvent,
-                            IncidentEventPayload(
-                                event=incident_event.model_dump(mode="json")
-                            ),
+                            IncidentEventPayload(event=incident_event.model_dump(mode="json")),
                         )
                     )
 
@@ -128,9 +126,7 @@ class IncidentStreamingService:
                         )
                     )
 
-            message_id = str(
-                uuid5(NAMESPACE_URL, f"{incident_id}:{request.request_id}:response")
-            )
+            message_id = str(uuid5(NAMESPACE_URL, f"{incident_id}:{request.request_id}:response"))
             yield serialize_sse(
                 envelope(
                     MessageCompletedEvent,
@@ -138,9 +134,7 @@ class IncidentStreamingService:
                 )
             )
 
-            known_drafts = {
-                draft.draft_id for draft in before.postmortem_context.drafts
-            }
+            known_drafts = {draft.draft_id for draft in before.postmortem_context.drafts}
             for draft in after.postmortem_context.drafts:
                 if draft.draft_id not in known_drafts:
                     yield serialize_sse(

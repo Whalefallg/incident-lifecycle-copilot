@@ -22,9 +22,7 @@ def test_browser_session_cookie_is_stable():
 
 def test_invalid_session_header_is_replaced():
     with TestClient(app) as client:
-        response = client.get(
-            "/api/monitoring/health", headers={"X-Session-ID": "not-a-uuid"}
-        )
+        response = client.get("/api/monitoring/health", headers={"X-Session-ID": "not-a-uuid"})
 
     assert response.headers["X-Session-ID"] != "not-a-uuid"
     uuid.UUID(response.headers["X-Session-ID"])
