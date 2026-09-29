@@ -8,6 +8,15 @@ export interface StreamState {
   text: string;
   lastSequence: number;
   error: string | null;
+  workflowState: string | null;
+  agents: Record<string, AgentActivity>;
+}
+
+export interface AgentActivity {
+  name: string;
+  status: "running" | "completed" | "failed";
+  durationMs: number | null;
+  sequence: number;
 }
 
 export const initialStreamState: StreamState = {
@@ -16,6 +25,8 @@ export const initialStreamState: StreamState = {
   text: "",
   lastSequence: -1,
   error: null,
+  workflowState: null,
+  agents: {},
 };
 
 export function reduceStreamState(state: StreamState, event: StreamEvent): StreamState {
@@ -23,15 +34,35 @@ export function reduceStreamState(state: StreamState, event: StreamEvent): Strea
   const next = { ...state, lastSequence: event.sequence };
   if (event.type === "message.delta") return { ...next, text: state.text + event.payload.text };
   if (event.type === "message.completed") return { ...next, text: event.payload.text };
+  if (event.type === "workflow.state_changed") return { ...next, workflowState: event.payload.to };
+  if (event.type === "agent.started" || event.type === "agent.completed") {
+    return {
+      ...next,
+      agents: {
+        ...state.agents,
+        [event.payload.agent]: {
+          name: event.payload.agent,
+          status: event.type === "agent.started" ? "running" : "completed",
+          durationMs: event.payload.duration_ms ?? null,
+          sequence: event.sequence,
+        },
+      },
+    };
+  }
   if (event.type === "request.completed") return { ...next, status: "completed", error: null };
-  if (event.type === "error") return { ...next, status: "error", error: event.payload.message };
+  if (event.type === "error") {
+    const agents = Object.fromEntries(Object.entries(state.agents).map(([name, activity]) => [name, activity.status === "running" ? { ...activity, status: "failed" as const } : activity]));
+    return { ...next, status: "error", error: event.payload.message, agents };
+  }
   return next;
 }
 
 interface WorkspaceState {
   sidebarCollapsed: boolean;
+  selectedWorkspaceTab: "conversation" | "timeline";
   streams: Record<string, StreamState>;
   toggleSidebar: () => void;
+  selectWorkspaceTab: (tab: "conversation" | "timeline") => void;
   startStream: (incidentId: string, requestId: string) => void;
   applyStreamEvent: (incidentId: string, event: StreamEvent) => void;
   failStream: (incidentId: string, message: string) => void;
@@ -39,9 +70,11 @@ interface WorkspaceState {
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   sidebarCollapsed: false,
+  selectedWorkspaceTab: "conversation",
   streams: {},
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  selectWorkspaceTab: (selectedWorkspaceTab) => set({ selectedWorkspaceTab }),
   startStream: (incidentId, requestId) =>
     set((state) => ({
       streams: {

@@ -39,10 +39,11 @@ export function ConversationPanel({ incidentId }: { incidentId: string }) {
   };
 
   return (
-    <section className="panel conversation-panel">
+    <section className="panel conversation-panel" id="conversation-panel" role="tabpanel" aria-labelledby="conversation-tab">
       <div className="panel-heading"><div><span className="eyebrow">Copilot</span><h2>Conversation</h2></div>{stream?.status === "streaming" ? <span>Running</span> : null}</div>
       <div className="message-list" aria-live="polite">
         {messages.isPending ? <p className="empty-inline">Loading conversation…</p> : null}
+        {messages.isError ? <div className="inline-error" role="alert"><span>Conversation could not be loaded.</span><button className="button-secondary" type="button" onClick={() => void messages.refetch()}>Retry</button></div> : null}
         {messages.data?.total === 0 && !stream?.text ? <p className="empty-inline">Ask the Copilot to triage, investigate, communicate, or resolve this incident.</p> : null}
         {messages.data?.items.map((item, index) => <article className={`message message-${item.role}`} key={`${item.timestamp}-${index}`}><strong>{item.role === "engineer" ? "Engineer" : "Copilot"}</strong><p>{item.content}</p></article>)}
         {stream?.text && stream.status === "streaming" ? <article className="message message-agent"><strong>Copilot</strong><p>{stream.text}<span className="stream-cursor" aria-hidden="true" /></p></article> : null}
