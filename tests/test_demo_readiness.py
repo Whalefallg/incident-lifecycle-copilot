@@ -47,6 +47,18 @@ def test_knowledge_mutation_requires_admin_token():
     assert response.status_code == 403
 
 
+def test_official_knowledge_mutation_uses_structured_forbidden_error():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/knowledge/drafts/missing/review",
+            json={"actor": "reviewer"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+    assert response.json()["error"]["message"] == "Admin access required"
+
+
 @pytest.mark.asyncio
 async def test_local_runbook_fallback_returns_grounded_source(monkeypatch):
     retriever = LocalRunbookRetriever()

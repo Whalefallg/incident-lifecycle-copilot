@@ -3,7 +3,9 @@
 import os
 import secrets
 
-from fastapi import Header, HTTPException
+from fastapi import Header
+
+from api.core.exceptions import ApiException, ErrorCode
 
 
 async def require_admin(x_admin_token: str | None = Header(default=None)) -> None:
@@ -11,4 +13,8 @@ async def require_admin(x_admin_token: str | None = Header(default=None)) -> Non
     if not expected or not x_admin_token or not secrets.compare_digest(
         x_admin_token, expected
     ):
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise ApiException(
+            status_code=403,
+            code=ErrorCode.FORBIDDEN,
+            message="Admin access required",
+        )

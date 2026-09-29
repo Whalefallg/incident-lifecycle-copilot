@@ -4,26 +4,6 @@
  */
 
 export interface paths {
-    "/api/incident/escalate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Escalate Incident
-         * @description Trigger an incident escalation via the EscalationAgent.
-         */
-        post: operations["escalate_incident_api_incident_escalate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/incidents": {
         parameters: {
             query?: never;
@@ -145,46 +125,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/consultation/ask": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ask Consultation
-         * @description 提交咨询问题
-         */
-        post: operations["ask_consultation_api_consultation_ask_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/task/classify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Classify Task
-         * @description 分类任务
-         */
-        post: operations["classify_task_api_task_classify_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/knowledge/drafts": {
         parameters: {
             query?: never;
@@ -236,7 +176,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/knowledge/": {
+    "/api/legacy/knowledge/": {
         parameters: {
             query?: never;
             header?: never;
@@ -247,91 +187,20 @@ export interface paths {
          * Get All Knowledge
          * @description 获取所有知识条目
          */
-        get: operations["get_all_knowledge_api_knowledge__get"];
+        get: operations["get_all_knowledge_api_legacy_knowledge__get"];
         put?: never;
         /**
          * Add Knowledge
          * @description 添加新的知识条目
          */
-        post: operations["add_knowledge_api_knowledge__post"];
+        post: operations["add_knowledge_api_legacy_knowledge__post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/knowledge/drafts/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Postmortem Drafts
-         * @description List persisted postmortem drafts and their approval audit fields.
-         */
-        get: operations["list_postmortem_drafts_api_knowledge_drafts__session_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts/{session_id}/{draft_id}/review": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Review Postmortem Draft */
-        post: operations["review_postmortem_draft_api_knowledge_drafts__session_id___draft_id__review_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts/{session_id}/{draft_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve Postmortem Draft */
-        post: operations["approve_postmortem_draft_api_knowledge_drafts__session_id___draft_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/drafts/{session_id}/{draft_id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reject Postmortem Draft */
-        post: operations["reject_postmortem_draft_api_knowledge_drafts__session_id___draft_id__reject_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/knowledge/{knowledge_id}": {
+    "/api/legacy/knowledge/{knowledge_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -342,24 +211,24 @@ export interface paths {
          * Get Knowledge
          * @description 获取特定知识条目
          */
-        get: operations["get_knowledge_api_knowledge__knowledge_id__get"];
+        get: operations["get_knowledge_api_legacy_knowledge__knowledge_id__get"];
         /**
          * Update Knowledge
          * @description 更新知识条目
          */
-        put: operations["update_knowledge_api_knowledge__knowledge_id__put"];
+        put: operations["update_knowledge_api_legacy_knowledge__knowledge_id__put"];
         post?: never;
         /**
          * Delete Knowledge
          * @description 删除知识条目
          */
-        delete: operations["delete_knowledge_api_knowledge__knowledge_id__delete"];
+        delete: operations["delete_knowledge_api_legacy_knowledge__knowledge_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/knowledge/search": {
+    "/api/legacy/knowledge/search": {
         parameters: {
             query?: never;
             header?: never;
@@ -372,7 +241,7 @@ export interface paths {
          * Search Knowledge
          * @description 搜索知识库
          */
-        post: operations["search_knowledge_api_knowledge_search_post"];
+        post: operations["search_knowledge_api_legacy_knowledge_search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -629,15 +498,6 @@ export interface components {
             /** Request Id */
             request_id?: string | null;
         };
-        /** ConsultationRequest */
-        ConsultationRequest: {
-            /** User Id */
-            user_id: string;
-            /** Question */
-            question: string;
-            /** Category */
-            category?: string | null;
-        };
         /** CreateIncidentRequest */
         CreateIncidentRequest: {
             /** Incident Id */
@@ -659,30 +519,10 @@ export interface components {
             request_id: string;
         };
         /**
-         * DataResponse
-         * @description 数据响应模型
-         */
-        DataResponse: {
-            /** Message */
-            message: string;
-            /**
-             * Timestamp
-             * Format: date-time
-             */
-            timestamp?: string;
-            /** Data */
-            data: unknown;
-        };
-        /** DraftDecision */
-        DraftDecision: {
-            /** Actor */
-            actor: string;
-        };
-        /**
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "CONVERSATION_CONFLICT" | "IDEMPOTENCY_MISMATCH" | "REQUEST_IN_PROGRESS" | "INCIDENT_ALREADY_EXISTS" | "RAG_UNAVAILABLE" | "AGENT_EXECUTION_ERROR" | "KNOWLEDGE_TRANSITION_CONFLICT" | "INTERNAL_ERROR";
+        ErrorCode: "VALIDATION_ERROR" | "FORBIDDEN" | "NOT_FOUND" | "CONVERSATION_CONFLICT" | "IDEMPOTENCY_MISMATCH" | "REQUEST_IN_PROGRESS" | "INCIDENT_ALREADY_EXISTS" | "RAG_UNAVAILABLE" | "AGENT_EXECUTION_ERROR" | "KNOWLEDGE_TRANSITION_CONFLICT" | "INTERNAL_ERROR";
         /** ErrorDetail */
         ErrorDetail: {
             code: components["schemas"]["ErrorCode"];
@@ -754,15 +594,6 @@ export interface components {
             items: components["schemas"]["IncidentResponse"][];
             /** Total */
             total: number;
-        };
-        /** IncidentRequest */
-        IncidentRequest: {
-            /** Service */
-            service: string;
-            /** Severity */
-            severity?: string | null;
-            /** Description */
-            description?: string | null;
         };
         /** IncidentResponse */
         IncidentResponse: {
@@ -1012,15 +843,6 @@ export interface components {
             /** Error */
             error?: string | null;
         };
-        /** TaskClassificationRequest */
-        TaskClassificationRequest: {
-            /** Text */
-            text: string;
-            /** Context */
-            context?: {
-                [key: string]: unknown;
-            } | null;
-        };
         /** TraceListResponse */
         TraceListResponse: {
             /** Incident Id */
@@ -1063,39 +885,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    escalate_incident_api_incident_escalate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IncidentRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_incidents_api_incidents_get: {
         parameters: {
             query?: never;
@@ -1622,72 +1411,6 @@ export interface operations {
             };
         };
     };
-    ask_consultation_api_consultation_ask_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConsultationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    classify_task_api_task_classify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TaskClassificationRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DataResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_drafts_api_knowledge_drafts_get: {
         parameters: {
             query?: never;
@@ -1704,6 +1427,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeDraftListResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1744,6 +1476,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeDraftResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Not Found */
@@ -1802,6 +1543,15 @@ export interface operations {
                     "application/json": components["schemas"]["KnowledgeDraftResponse"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -1831,7 +1581,7 @@ export interface operations {
             };
         };
     };
-    get_all_knowledge_api_knowledge__get: {
+    get_all_knowledge_api_legacy_knowledge__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1851,7 +1601,7 @@ export interface operations {
             };
         };
     };
-    add_knowledge_api_knowledge__post: {
+    add_knowledge_api_legacy_knowledge__post: {
         parameters: {
             query?: never;
             header?: {
@@ -1886,152 +1636,7 @@ export interface operations {
             };
         };
     };
-    list_postmortem_drafts_api_knowledge_drafts__session_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    review_postmortem_draft_api_knowledge_drafts__session_id___draft_id__review_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-admin-token"?: string | null;
-            };
-            path: {
-                session_id: string;
-                draft_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DraftDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    approve_postmortem_draft_api_knowledge_drafts__session_id___draft_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-admin-token"?: string | null;
-            };
-            path: {
-                session_id: string;
-                draft_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DraftDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reject_postmortem_draft_api_knowledge_drafts__session_id___draft_id__reject_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-admin-token"?: string | null;
-            };
-            path: {
-                session_id: string;
-                draft_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DraftDecision"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_knowledge_api_knowledge__knowledge_id__get: {
+    get_knowledge_api_legacy_knowledge__knowledge_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2062,7 +1667,7 @@ export interface operations {
             };
         };
     };
-    update_knowledge_api_knowledge__knowledge_id__put: {
+    update_knowledge_api_legacy_knowledge__knowledge_id__put: {
         parameters: {
             query?: never;
             header?: {
@@ -2099,7 +1704,7 @@ export interface operations {
             };
         };
     };
-    delete_knowledge_api_knowledge__knowledge_id__delete: {
+    delete_knowledge_api_legacy_knowledge__knowledge_id__delete: {
         parameters: {
             query?: never;
             header?: {
@@ -2132,7 +1737,7 @@ export interface operations {
             };
         };
     };
-    search_knowledge_api_knowledge_search_post: {
+    search_knowledge_api_legacy_knowledge_search_post: {
         parameters: {
             query?: never;
             header?: never;
