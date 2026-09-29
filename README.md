@@ -16,6 +16,16 @@ Incident Lifecycle Copilot 是一个面向事故响应的 **全栈 AI Operations
 
 与依赖进程内 Agent 状态的实现不同，系统将完整会话状态持久化为版本化 `ConversationSnapshot`，使任意 Worker 能够恢复工作流，并通过乐观并发控制与幂等机制保证重试和并发正确性。检索则通过 MCP 对接独立的 [`rag-as-mcp`](https://github.com/Whalefallg/rag-as-mcp)，保持 Agent 编排与 RAG 基础设施的清晰边界。
 
+<p align="center">
+  <img
+    src="docs/assets/incident-workspace.png"
+    alt="Incident Lifecycle Copilot — React and TypeScript Incident Workspace"
+    width="100%"
+  />
+</p>
+
+React + TypeScript Incident Workspace：统一展示事故上下文、对话、工作流状态、Timeline、Runbook Evidence、Agent Trace 与 Postmortem。
+
 ## 核心能力
 
 - **Full-Stack Incident Workspace**：React + TypeScript 承载 Incident Workspace、Conversation、Timeline、Runbook Evidence、Agent Trace、Postmortem / Knowledge Review 与 Observability，并直接呈现后端持久化状态。
@@ -202,28 +212,88 @@ MCP 成功初始化后，运行时查询错误会显式暴露，不会静默切�
 
 ## 快速开始
 
-完整产品由 FastAPI API 与 React + TypeScript workspace 组成。本地开发使用两个进程：
+### 最小本地 Demo
+
+前置要求：Python 3.11+、Node.js 22+、npm，以及一个受支持的 Chat LLM API credential。完整产品由 FastAPI API 与 React + TypeScript workspace 组成，本地开发使用两个进程。
 
 ```bash
 git clone https://github.com/Whalefallg/incident-lifecycle-copilot.git
 cd incident-lifecycle-copilot
 
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements-production.txt
 cp .env.example .env
+```
 
+编辑 `.env`，至少配置一个 Chat model：
+
+```env
+RAG_MODE=local
+REDIS_STATE_ENABLED=false
+SEMANTIC_CACHE_ENABLED=false
+MODEL_ROUTING_ENABLED=false
+
+MODEL_PROVIDER=openai-compatible
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://your-provider.example/v1
+LLM_MODEL=your-model
+
+ADMIN_TOKEN=dev-admin
+```
+
+原生 OpenAI 也使用 `LLM_API_KEY` 与 `LLM_MODEL`，`LLM_BASE_URL` 可留空。Azure 必须改用 `MODEL_PROVIDER=azure`，并配置 `AZURE_OPENAI_API_KEY`、`AZURE_OPENAI_ENDPOINT`、`AZURE_OPENAI_DEPLOYMENT` 和 `AZURE_OPENAI_VERSION`。
+
+最小本地 Demo **不需要** Redis、Celery、Flower、`rag-as-mcp`、embedding API 或 `sentence-transformers`。`RAG_MODE=local` 只移除外部 RAG 依赖；执行 Agent 仍然需要可用的 Chat model。
+
+启动后端并先检查 health：
+
+```bash
 # terminal 1
 uvicorn app:app --reload --port 8000
 
-# terminal 2
+curl http://127.0.0.1:8000/api/monitoring/health
+```
+
+启动前端：
+
+```bash
+# terminal 2, from the repository root
 cd frontend
 npm ci
 npm run dev
 ```
 
-访问 `http://localhost:5173`。Vite 会将 `/api` 代理到 FastAPI。生产构建由 FastAPI 在 `http://localhost:8000` 直接提供，旧 Jinja UI 保留在 `/legacy`。
+访问 `http://localhost:5173`。Vite 会将 `/api` 代理到 `http://127.0.0.1:8000`，默认开发模式不需要额外配置 CORS。
+
+### 可选：Redis-backed Recovery
+
+仅在演示跨 Worker 恢复、Redis CAS 和共享持久状态时启动 Redis，并设置：
+
+```env
+REDIS_STATE_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+```
+
+### 可选：MCP-backed Retrieval
+
+默认 `RAG_MODE=local` 使用仓库内确定性 Runbook。若要连接 `rag-as-mcp`：
+
+```env
+RAG_MODE=mcp
+RAG_MCP_SERVER_PATH=/absolute/path/to/rag-as-mcp
+RAG_MCP_PYTHON=/absolute/path/to/rag-as-mcp/.venv/bin/python
+RAG_MCP_COLLECTION=default
+```
+
+### Knowledge Review
+
+`ADMIN_TOKEN` 是本地应用的 admin mutation token，不是第三方 secret。使用示例配置时，在 Knowledge Review 输入 actor `developer` 与 admin token `dev-admin`，即可执行 review、approve 和 reject。
+
+### Production Docker
 
 单容器构建：
 
@@ -234,15 +304,7 @@ docker run --rm -p 8000:8000 --env-file .env incident-lifecycle-copilot
 
 镜像使用 Node 构建阶段生成前端静态资源，再复制进精简 Python runtime；生产 Compose 不运行 Vite dev server。
 
-默认使用本地 RAG 时无需启动外部 MCP 服务。
-
-如需接入 `rag-as-mcp`：
-
-```bash
-RAG_MODE=mcp
-RAG_MCP_SERVER_PATH=/path/to/rag-as-mcp
-RAG_MCP_PYTHON=/path/to/rag-as-mcp/.venv/bin/python
-```
+生产构建由 FastAPI 在 `http://localhost:8000` 提供 React SPA 与 API，旧 Jinja UI 保留在 `/legacy`。首次本地体验不推荐 `docker-compose.yml`，因为它还会启动 Redis、Celery Worker、Celery Beat 与 Flower。
 
 ## 测试与质量门
 
@@ -559,28 +621,88 @@ Once MCP has initialized successfully, runtime query failures are explicit and d
 
 ## Quick Start
 
-The complete product consists of the FastAPI API and a React + TypeScript incident workspace. Local development uses two processes:
+### Minimal Local Demo
+
+Prerequisites: Python 3.11+, Node.js 22+, npm, and one supported Chat LLM API credential. The complete product consists of the FastAPI API and a React + TypeScript incident workspace; local development uses two processes.
 
 ```bash
 git clone https://github.com/Whalefallg/incident-lifecycle-copilot.git
 cd incident-lifecycle-copilot
 
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements-production.txt
 cp .env.example .env
+```
 
+Edit `.env` and configure at least one chat model:
+
+```env
+RAG_MODE=local
+REDIS_STATE_ENABLED=false
+SEMANTIC_CACHE_ENABLED=false
+MODEL_ROUTING_ENABLED=false
+
+MODEL_PROVIDER=openai-compatible
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://your-provider.example/v1
+LLM_MODEL=your-model
+
+ADMIN_TOKEN=dev-admin
+```
+
+Native OpenAI also uses `LLM_API_KEY` and `LLM_MODEL`; `LLM_BASE_URL` may be left empty. Azure requires `MODEL_PROVIDER=azure` plus `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, and `AZURE_OPENAI_VERSION`.
+
+For the minimal local demo you do **not** need Redis, Celery, Flower, `rag-as-mcp`, an embedding API, or `sentence-transformers`. `RAG_MODE=local` removes only the external RAG dependency; Agent execution still requires a configured chat model.
+
+Start the backend and verify health first:
+
+```bash
 # terminal 1
 uvicorn app:app --reload --port 8000
 
-# terminal 2
+curl http://127.0.0.1:8000/api/monitoring/health
+```
+
+Start the frontend:
+
+```bash
+# terminal 2, from the repository root
 cd frontend
 npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`; Vite proxies `/api` to FastAPI. The production build is served by FastAPI at `http://localhost:8000`, while the former Jinja UI remains available at `/legacy`.
+Open `http://localhost:5173`. Vite proxies `/api` to `http://127.0.0.1:8000`, so the default development setup needs no extra CORS configuration.
+
+### Optional: Redis-backed Recovery
+
+Start Redis only when demonstrating cross-worker recovery, Redis CAS, and shared durable state, then set:
+
+```env
+REDIS_STATE_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+```
+
+### Optional: MCP-backed Retrieval
+
+The default `RAG_MODE=local` uses deterministic runbooks in this repository. To connect `rag-as-mcp`, set:
+
+```env
+RAG_MODE=mcp
+RAG_MCP_SERVER_PATH=/absolute/path/to/rag-as-mcp
+RAG_MCP_PYTHON=/absolute/path/to/rag-as-mcp/.venv/bin/python
+RAG_MCP_COLLECTION=default
+```
+
+### Knowledge Review
+
+`ADMIN_TOKEN` is a local application admin-mutation token, not a third-party secret. With the example configuration, enter actor `developer` and admin token `dev-admin` in Knowledge Review to run review, approve, and reject mutations.
+
+### Production Docker
 
 Single-container build:
 
@@ -589,15 +711,7 @@ docker build -t incident-lifecycle-copilot .
 docker run --rm -p 8000:8000 --env-file .env incident-lifecycle-copilot
 ```
 
-The image builds the frontend in a Node stage and copies only the compiled assets into the Python runtime. Production Compose does not run a Vite development server.
-
-For MCP-backed retrieval:
-
-```bash
-RAG_MODE=mcp
-RAG_MCP_SERVER_PATH=/path/to/rag-as-mcp
-RAG_MCP_PYTHON=/path/to/rag-as-mcp/.venv/bin/python
-```
+The image builds the frontend in a Node stage and copies only the compiled assets into the Python runtime. FastAPI serves the React SPA and API at `http://localhost:8000`, with the legacy Jinja UI at `/legacy`. `docker-compose.yml` is not the recommended first-run path because it also starts Redis, Celery Worker, Celery Beat, and Flower.
 
 ## Testing and Quality Gates
 
