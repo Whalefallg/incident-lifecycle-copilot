@@ -1,6 +1,6 @@
 # Incident Lifecycle Copilot
 
-面向生产事故生命周期的可恢复 Agent 协作系统：覆盖事故分诊、升级、Runbook 检索、干系人沟通、复盘生成与知识审核，并将跨请求、跨 Worker 的一致性作为核心设计目标。
+基于 React、TypeScript 与 FastAPI 的全栈 AI Incident Operations Workspace：以可恢复多 Agent 工作流、Redis CAS、请求幂等与 MCP-based RAG 覆盖完整事故生命周期。
 
 **中文** · [English](#english)
 
@@ -10,53 +10,68 @@
 
 ## 项目简介
 
-Incident Lifecycle Copilot 将事故响应从一次性的 LLM 对话，建模为一组**可恢复、可验证、可审计的工作流**。
+Incident Lifecycle Copilot 是一个面向事故响应的 **全栈 AI Operations Workspace**，基于 React + TypeScript + FastAPI 构建，并结合可恢复多 Agent 工作流、Redis CAS / 幂等状态管理与 MCP-based RAG，覆盖告警分诊、升级、Runbook 检索、状态沟通、Postmortem 和知识审核。
 
-系统围绕事故处理中的关键环节组织多个职责明确的 Agent，包括分诊、升级、知识检索、沟通和复盘。与依赖进程内 Agent 状态的实现不同，本项目将完整会话状态持久化为版本化 `ConversationSnapshot`，使任意 Worker 都能够恢复当前工作流，并通过乐观并发控制与幂等机制保证重试和并发请求下的正确性。
+它不是与后端脱节的 mock dashboard：Incident Workspace、Conversation、Timeline、Runbook Evidence、Agent Trace、Postmortem Review、Knowledge Review 与 Observability UI 分别映射真实的 `ConversationSnapshot`、Incident Event Ledger、Request Trace、Retrieval Evidence 和 Knowledge Draft Lifecycle。
 
-项目同时通过 MCP 对接独立的 [`rag-as-mcp`](https://github.com/Whalefallg/rag-as-mcp) 检索服务，使 Agent 编排与 RAG 基础设施保持清晰边界。
+与依赖进程内 Agent 状态的实现不同，系统将完整会话状态持久化为版本化 `ConversationSnapshot`，使任意 Worker 能够恢复工作流，并通过乐观并发控制与幂等机制保证重试和并发正确性。检索则通过 MCP 对接独立的 [`rag-as-mcp`](https://github.com/Whalefallg/rag-as-mcp)，保持 Agent 编排与 RAG 基础设施的清晰边界。
 
 ## 核心能力
 
-- **可恢复 Agent 工作流**：请求级 Agent 为一次性对象，状态由持久化快照恢复，而不是保存在 Python 对象中。
-- **跨 Worker 会话恢复**：支持通过 Redis CAS 在多 Worker 环境中恢复、继续和更新同一事故会话。
-- **可中断 FSM**：事故升级流程可被临时 Runbook 查询挂起，查询结束后恢复原工作流。
-- **并发与幂等保护**：使用 revision compare-and-set 拒绝 stale write，并通过 request ID + payload fingerprint 防止重复执行和幂等键误用。
-- **结构化 Incident Event Ledger**：先持久化事实，再基于事件生成时间线、沟通内容和复盘草稿。
-- **MCP RAG 集成**：通过稳定 `Retriever` 契约接入独立的混合检索服务，并隔离 MCP 生命周期、协议与错误处理。
-- **知识审核闭环**：知识草稿经过 `DRAFT → REVIEWED → APPROVED → INGESTED / REJECTED` 生命周期后才能进入知识库。
-- **Full-Stack Incident Workspace**：React + TypeScript 提供事故列表、对话、结构化 Timeline、Agent Trace、Runbook Evidence、事实/分析分离的 Postmortem 与 Knowledge Review。
-- **类型化交付链路**：OpenAPI 生成 TypeScript 契约，typed SSE 传递工作流事件，多阶段 Docker 镜像由 FastAPI 提供 SPA 与 API。
+- **Full-Stack Incident Workspace**：React + TypeScript 承载 Incident Workspace、Conversation、Timeline、Runbook Evidence、Agent Trace、Postmortem / Knowledge Review 与 Observability，并直接呈现后端持久化状态。
+- **可恢复多 Agent 工作流**：请求级 Agent 为一次性对象；可中断 FSM 与业务上下文由 `ConversationSnapshot` 恢复。
+- **Typed REST + SSE Delivery**：OpenAPI 生成 TypeScript 契约；typed SSE 传递请求进度与已提交结果，FastAPI 同时提供 API 和生产 SPA。
+- **MCP-based RAG 集成**：稳定 `Retriever` 契约对接独立混合检索服务，并隔离 MCP 生命周期、协议与错误处理。
+- **跨 Worker 恢复**：Redis revision compare-and-set 允许不同 Worker 安全恢复和更新同一事故会话。
+- **并发与幂等保护**：CAS 拒绝 stale write，request ID + payload fingerprint 防止重复执行与幂等键误用。
+- **结构化 Incident Event Ledger**：先持久化事实，再生成 Timeline、沟通内容和 Postmortem 草稿。
+- **Agent Execution Trace**：展示实际参与请求的 Agent、动作、状态、耗时与有界 Retrieval Evidence，不暴露模型思维链。
+- **知识审核闭环**：知识草稿经过 `DRAFT → REVIEWED → APPROVED → INGESTED / REJECTED` 生命周期；没有真实 ingestor 时停留在 `APPROVED`。
+
+## 技术栈
+
+| 层级 | 技术 |
+|---|---|
+| 前端 | React 19、TypeScript、Vite、React Router、TanStack Query、Zustand |
+| 后端 | FastAPI、Pydantic、Python |
+| 状态与并发 | `ConversationSnapshot`、Redis CAS、request idempotency |
+| AI 工作流 | Recoverable Multi-Agent Workflow、LangChain、OpenAI-compatible models |
+| 检索 | MCP、`rag-as-mcp`、Hybrid RAG |
+| 可观测性 | Agent Trace、Incident Event Ledger、typed SSE |
+| 测试 | Pytest、Vitest、Playwright |
+| 交付 | Multi-stage Docker、GitHub Actions |
 
 ## 架构
 
 ```text
-React Incident Workspace
-        |
-        +---- Typed REST reads and mutations
-        +---- Typed SSE request progress
-        |
-        v
-FastAPI / request_id / stable error envelope
-        |
-        v
-ConversationCoordinator
-        |
-        v
-ConversationRepository ---------------- InMemory / Redis CAS
-        |
-        v
-ConversationSnapshot
-        |
-        +---- Triage Router / FSM
-        +---- EscalationAgent
-        +---- ConsultantAgent ---------- Retriever ---------- rag-as-mcp
-        +---- CommunicationAgent
-        +---- PostmortemAgent
-        |
-        +---- Structured Incident Event Ledger
-        |
-        +---- Reviewed Knowledge Lifecycle
+React + TypeScript Incident Workspace
+├── Incident List / Workspace     ├── Conversation / Timeline
+├── Runbook Evidence / Agent Trace
+└── Postmortem / Knowledge Review / Observability
+                    |
+                    | Typed REST + SSE
+                    v
+FastAPI → Incident Application Services
+                    |
+                    v
+         ConversationCoordinator
+                    |
+                    v
+         ConversationRepository
+                    |
+                    v
+         ConversationSnapshot
+      ├── Request Trace / Retrieval Evidence
+      ├── Incident Event Ledger / Knowledge Lifecycle
+      └── Redis CAS / Request Idempotency
+                    |
+                    v
+       Disposable Multi-Agent Workflow
+      ├── EscalationAgent      ├── ConsultantAgent
+      ├── CommunicationAgent   └── PostmortemAgent
+                    |
+                    v
+          Retriever / MCP → rag-as-mcp
 ```
 
 SSE 提供类型化的请求进度与已提交结果，不宣称为实时 token streaming。`request.completed` 表示快照已经持久化，前端随后刷新该事故下的消息、时间线、检索证据、trace 与复盘查询。完整边界与演示步骤见 [`docs/FULLSTACK_ARCHITECTURE.md`](docs/FULLSTACK_ARCHITECTURE.md) 和 [`docs/FULLSTACK_DEMO.md`](docs/FULLSTACK_DEMO.md)。
@@ -277,6 +292,11 @@ mypy
 
 GitHub Actions 分别运行 backend、frontend、浏览器 E2E 和 Docker production smoke。浏览器 E2E 使用 mocked API；Docker job 独立验证构建后的 React SPA、FastAPI、深层客户端路由、health 与 legacy 页面。
 
+- **Backend**：Pytest、Ruff、format check、Mypy
+- **Frontend**：ESLint、TypeScript typecheck、Vitest、production build、OpenAPI drift check
+- **Browser**：Playwright fixture-backed E2E（mocked API / fixture data，不调用 live model）
+- **Production Delivery**：Docker build + FastAPI runtime HTTP smoke
+
 ## 检索评估
 
 项目提供真实 MCP 边界上的检索评估链路：
@@ -321,16 +341,16 @@ python scripts/benchmark_retrieval.py
 ## 仓库结构
 
 ```text
-agents/           Agent 与工作流职责
-api/              HTTP API、类型化 contracts 与 ConversationCoordinator
-services/incidents/ Incident 应用服务与 SSE 投影
-conversation/     Snapshot、Event、Repository 与 Redis CAS
-knowledge/        Knowledge draft 审核生命周期
-config/           Runtime 与 RAG MCP 配置
-frontend/         React + TypeScript Incident Workspace
-benchmarks/       Golden dataset 与检索评估结果
-scripts/          Benchmark 等工程脚本
-tests/            Unit / integration / live contract tests
+frontend/              React + TypeScript Incident Workspace
+api/contracts/         Typed REST / SSE public contracts
+services/incidents/    Incident application services 与 SSE 投影
+conversation/          Snapshot、Event、Trace、Repository 与 Redis CAS
+agents/                Recoverable multi-agent workflow
+knowledge/             Knowledge draft 审核生命周期
+config/                Runtime 与 RAG MCP 配置
+benchmarks/            Golden dataset 与检索评估结果
+scripts/               Benchmark 等工程脚本
+tests/                 Unit / integration / live contract tests
 ```
 
 ## License
@@ -343,55 +363,70 @@ MIT License。详见 [LICENSE](LICENSE)。
 
 ## Overview
 
-Incident Lifecycle Copilot models incident response as a set of **recoverable, testable, and auditable agent workflows** rather than a single stateful LLM conversation.
+Incident Lifecycle Copilot is a **full-stack AI incident operations workspace** built with React, TypeScript, FastAPI, recoverable multi-agent workflows, Redis CAS and request idempotency, and MCP-based RAG. It covers triage, escalation, runbook retrieval, stakeholder communication, postmortems, and knowledge review.
 
-The system coordinates triage, escalation, runbook consultation, stakeholder communication, postmortem drafting, and reviewed knowledge promotion. Its central design principle is that recoverable state belongs in a versioned `ConversationSnapshot`, not inside a long-lived Python Agent object.
+It is not a mock dashboard disconnected from the backend. The Incident Workspace, conversation, timeline, runbook evidence, agent trace, postmortem review, knowledge review, and observability UI map directly to persisted `ConversationSnapshot`, Incident Event Ledger, Request Trace, Retrieval Evidence, and Knowledge Draft Lifecycle state.
 
-This allows requests to move across workers while preserving correctness through optimistic concurrency control and idempotent request handling.
+Recoverable state belongs in a versioned `ConversationSnapshot`, not a long-lived Python Agent object. This allows requests to move across workers while preserving correctness through optimistic concurrency control and idempotent request handling.
 
 The project integrates with [`rag-as-mcp`](https://github.com/Whalefallg/rag-as-mcp) through MCP, keeping agent orchestration and retrieval infrastructure cleanly separated.
 
 ## Highlights
 
-- **Recoverable agent workflows** — request-scoped Agents are disposable and rebuilt from persisted snapshots.
-- **Cross-worker recovery** — Redis CAS allows independent workers to continue the same incident conversation safely.
-- **Interruptible FSM** — an active escalation can be suspended for a runbook question and resumed later.
-- **Concurrency and idempotency** — revision checks reject stale writes, while request IDs and payload fingerprints protect retries.
-- **Structured incident event ledger** — operational facts are persisted before timelines, communications, and postmortems are generated.
-- **MCP-based RAG integration** — retrieval is isolated behind a backend-neutral `Retriever` contract.
-- **Reviewed knowledge lifecycle** — generated knowledge must pass explicit review and approval before ingestion.
-- **Full-stack Incident Workspace** — React and TypeScript provide incident conversation, structured timeline, agent trace, runbook evidence, fact/analysis-separated postmortems, and knowledge review.
-- **Typed delivery path** — OpenAPI generates the TypeScript contract, typed SSE carries workflow events, and a multi-stage Docker image serves both the SPA and FastAPI API.
+- **Full-stack Incident Workspace** — React and TypeScript provide the incident workspace, conversation, timeline, runbook evidence, agent trace, postmortem and knowledge review, and observability over real backend state.
+- **Recoverable multi-agent workflows** — request-scoped Agents are disposable; the interruptible FSM and business context are rebuilt from `ConversationSnapshot`.
+- **Typed REST + SSE delivery** — OpenAPI generates the TypeScript contract; typed SSE carries request progress and committed results, while FastAPI serves both the API and production SPA.
+- **MCP-based RAG integration** — a backend-neutral `Retriever` contract isolates hybrid retrieval from MCP lifecycle, protocol, and failure handling.
+- **Cross-worker recovery** — Redis revision compare-and-set allows independent workers to recover and update the same incident safely.
+- **Concurrency and idempotency** — CAS rejects stale writes, while request IDs and payload fingerprints prevent duplicate execution and key misuse.
+- **Structured Incident Event Ledger** — operational facts are persisted before timelines, communications, and postmortems are generated.
+- **Agent execution trace** — the UI exposes actual participating Agents, actions, status, duration, and bounded retrieval evidence without model chain-of-thought.
+- **Reviewed knowledge lifecycle** — drafts move through `DRAFT → REVIEWED → APPROVED → INGESTED / REJECTED`; without a real ingestor they stop at `APPROVED`.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router, TanStack Query, Zustand |
+| Backend | FastAPI, Pydantic, Python |
+| State / Concurrency | `ConversationSnapshot`, Redis CAS, request idempotency |
+| AI Workflow | Recoverable multi-agent workflow, LangChain, OpenAI-compatible models |
+| Retrieval | MCP, `rag-as-mcp`, hybrid RAG |
+| Observability | Agent Trace, Incident Event Ledger, typed SSE |
+| Testing | Pytest, Vitest, Playwright |
+| Delivery | Multi-stage Docker, GitHub Actions |
 
 ## Architecture
 
 ```text
-React Incident Workspace
-        |
-        +---- typed REST reads and mutations
-        +---- typed SSE request progress
-        |
-        v
-FastAPI / request_id / stable error envelope
-        |
-        v
-ConversationCoordinator
-        |
-        v
-ConversationRepository ---------------- InMemory / Redis CAS
-        |
-        v
-ConversationSnapshot
-        |
-        +---- Triage Router / FSM
-        +---- EscalationAgent
-        +---- ConsultantAgent ---------- Retriever ---------- rag-as-mcp
-        +---- CommunicationAgent
-        +---- PostmortemAgent
-        |
-        +---- Structured Incident Event Ledger
-        |
-        +---- Reviewed Knowledge Lifecycle
+React + TypeScript Incident Workspace
+├── Incident List / Workspace     ├── Conversation / Timeline
+├── Runbook Evidence / Agent Trace
+└── Postmortem / Knowledge Review / Observability
+                    |
+                    | Typed REST + SSE
+                    v
+FastAPI → Incident Application Services
+                    |
+                    v
+         ConversationCoordinator
+                    |
+                    v
+         ConversationRepository
+                    |
+                    v
+         ConversationSnapshot
+      ├── Request Trace / Retrieval Evidence
+      ├── Incident Event Ledger / Knowledge Lifecycle
+      └── Redis CAS / Request Idempotency
+                    |
+                    v
+       Disposable Multi-Agent Workflow
+      ├── EscalationAgent      ├── ConsultantAgent
+      ├── CommunicationAgent   └── PostmortemAgent
+                    |
+                    v
+          Retriever / MCP → rag-as-mcp
 ```
 
 SSE carries typed request progress and committed results; it is not presented as real-time token streaming. `request.completed` means the snapshot is durable, after which the frontend refreshes messages, timeline, retrieval evidence, trace, and postmortem queries for that incident. See [`docs/FULLSTACK_ARCHITECTURE.md`](docs/FULLSTACK_ARCHITECTURE.md) and [`docs/FULLSTACK_DEMO.md`](docs/FULLSTACK_DEMO.md).
@@ -612,6 +647,11 @@ mypy
 
 GitHub Actions runs independent backend, frontend, browser E2E, and Docker production-smoke jobs. Browser E2E uses a mocked API; the Docker job separately verifies the built React SPA, FastAPI API, deep client routes, health endpoint, and legacy page.
 
+- **Backend:** Pytest, Ruff, format check, and Mypy
+- **Frontend:** ESLint, TypeScript typecheck, Vitest, production build, and OpenAPI drift check
+- **Browser:** Playwright fixture-backed E2E with mocked API and fixture data, not a live model
+- **Production Delivery:** Docker build plus FastAPI runtime HTTP smoke
+
 ## Retrieval Evaluation
 
 The benchmark exercises the real retrieval boundary:
@@ -656,16 +696,16 @@ The currently committed benchmark artifact demonstrates end-to-end protocol exec
 ## Repository Structure
 
 ```text
-agents/           agent and workflow responsibilities
-api/              HTTP API, typed contracts, and conversation coordination
-services/incidents/ incident application services and SSE projection
-conversation/     snapshots, events, repositories, and Redis CAS
-knowledge/        reviewed knowledge-draft lifecycle
-config/           runtime and RAG MCP configuration
-frontend/         React and TypeScript Incident Workspace
-benchmarks/       golden retrieval dataset and result artifacts
-scripts/          benchmark and engineering utilities
-tests/            unit, integration, and live contract coverage
+frontend/              React + TypeScript Incident Workspace
+api/contracts/         typed REST / SSE public contracts
+services/incidents/    incident application services and SSE projection
+conversation/          snapshots, events, traces, repositories, and Redis CAS
+agents/                recoverable multi-agent workflow
+knowledge/             reviewed knowledge-draft lifecycle
+config/                runtime and RAG MCP configuration
+benchmarks/            golden retrieval dataset and result artifacts
+scripts/               benchmark and engineering utilities
+tests/                 unit, integration, and live contract coverage
 ```
 
 ## License
