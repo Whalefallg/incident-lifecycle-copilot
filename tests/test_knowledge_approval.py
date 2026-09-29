@@ -71,30 +71,6 @@ async def test_versions_are_unique_but_new_version_can_ingest():
     assert ("INC-3", 2) in ingestor.documents
 
 
-@pytest.mark.asyncio
-async def test_persisted_draft_api_transition_updates_snapshot(monkeypatch):
-    from api import chat_handler
-    from api.knowledge import _transition_draft
-    from conversation.repository import InMemoryConversationRepository
-    from knowledge.approval import KnowledgeDraft
-
-    repository = InMemoryConversationRepository()
-    draft = KnowledgeDraft.create("session-approval", 1, "draft")
-    snapshot = ConversationSnapshot(session_id="session-approval")
-    snapshot.postmortem_context.drafts.append(draft)
-    await repository.create(snapshot)
-    monkeypatch.setattr(chat_handler, "_in_memory_repository", repository)
-
-    reviewed = await _transition_draft("session-approval", draft.draft_id, "review", "reviewer")
-    approved = await _transition_draft("session-approval", draft.draft_id, "approve", "approver")
-    persisted = await repository.load("session-approval")
-
-    assert reviewed.status is KnowledgeDraftStatus.REVIEWED
-    assert approved.status is KnowledgeDraftStatus.APPROVED
-    assert persisted.postmortem_context.drafts[0].approved_by == "approver"
-    assert persisted.revision == 2
-
-
 def test_knowledge_draft_round_trip_is_part_of_snapshot():
     from knowledge.approval import KnowledgeDraft
 

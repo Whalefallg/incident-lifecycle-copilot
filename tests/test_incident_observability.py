@@ -1,6 +1,17 @@
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
-from config.request_trace import capture_request_trace, record_retrieval, trace_step
+import pytest
+
+from agents.task_classification.agent_router import AgentRouter
+from agents.task_classification.state_manager import StateManager
+from config.request_trace import (
+    MAX_RESULT_CONTENT_CHARS,
+    MAX_RETRIEVAL_RESULTS,
+    capture_request_trace,
+    record_retrieval,
+    trace_step,
+)
 from conversation.models import ConversationSnapshot
 from conversation.repository import InMemoryConversationRepository
 from services.incidents import IncidentService
@@ -28,6 +39,54 @@ def test_request_trace_captures_safe_steps_and_structured_retrieval():
     assert request_trace.steps[0].status == "completed"
     assert request_trace.retrievals[0].results[0].document_id == "redis-oom-runbook"
     assert request_trace.model_dump_json().find("reasoning") == -1
+
+
+def test_retrieval_trace_keeps_only_bounded_result_excerpts():
+    results = [
+        SimpleNamespace(
+            document_id=f"runbook-{index}",
+            content="x" * (MAX_RESULT_CONTENT_CHARS + 100),
+            source="fixture",
+            score=1.0,
+            metadata={},
+        )
+        for index in range(MAX_RETRIEVAL_RESULTS + 2)
+    ]
+    with capture_request_trace("request-bounded") as request_trace:
+        record_retrieval(
+            query="bounded evidence",
+            collection="default",
+            duration_ms=1,
+            results=results,
+        )
+
+    captured = request_trace.retrievals[0].results
+    assert len(captured) == MAX_RETRIEVAL_RESULTS
+    assert all(len(item.content) == MAX_RESULT_CONTENT_CHARS for item in captured)
+
+
+@pytest.mark.asyncio
+async def test_trace_records_the_specialist_that_actually_handles_the_request():
+    communication_agent = MagicMock()
+
+    async def draft_stream(_task):
+        yield "status update"
+
+    communication_agent.draft_stream = draft_stream
+    router = AgentRouter(
+        MagicMock(),
+        MagicMock(),
+        StateManager(),
+        communication_agent=communication_agent,
+    )
+
+    with capture_request_trace("request-comms") as request_trace:
+        output = [token async for token in router.route_to_comms("draft an update")]
+
+    assert "status update" in output
+    assert [(step.agent, step.action) for step in request_trace.steps] == [
+        ("CommunicationAgent", "stakeholder_update")
+    ]
 
 
 async def test_incident_service_exposes_trace_and_runbook_resources():

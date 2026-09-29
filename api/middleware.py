@@ -64,11 +64,8 @@ class DemoRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         metered_paths = {
-            "/chat",
-            "/chat/stream",
-            "/api/consultation/ask",
-            "/api/incident/escalate",
-            "/api/task/classify",
+            "/legacy/chat",
+            "/legacy/chat/stream",
             "/api/user-behavior/send-reminder",
         }
         if request.url.path not in metered_paths:

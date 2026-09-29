@@ -20,7 +20,11 @@ from services.knowledge_lifecycle import (
 router = APIRouter(
     prefix="/api/knowledge/drafts",
     tags=["knowledge-lifecycle"],
-    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    responses={
+        403: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        409: {"model": ErrorResponse},
+    },
 )
 
 RepositoryDependency = Annotated[ConversationRepository, Depends(get_conversation_repository)]

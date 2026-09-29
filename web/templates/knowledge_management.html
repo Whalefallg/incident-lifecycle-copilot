@@ -598,7 +598,7 @@
         // 加载知识库数据
         async function loadKnowledgeData() {
             try {
-                const response = await fetch('/api/knowledge');
+                const response = await fetch('/api/legacy/knowledge');
                 const data = await response.json();
 
                 knowledgeData = data.documents;
@@ -730,7 +730,7 @@
             const category = document.getElementById('searchCategory').value;
 
             try {
-                const response = await fetch('/api/knowledge/search', {
+                const response = await fetch('/api/legacy/knowledge/search', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -818,7 +818,7 @@
             const keywords = keywordsStr ? keywordsStr.split(',').map(k => k.trim()).filter(k => k) : [];
 
             try {
-                const response = await fetch('/api/knowledge', {
+                const response = await fetch('/api/legacy/knowledge', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -885,7 +885,7 @@
             const keywords = keywordsStr ? keywordsStr.split(',').map(k => k.trim()).filter(k => k) : [];
 
             try {
-                const response = await fetch(`/api/knowledge/${id}`, {
+                const response = await fetch(`/api/legacy/knowledge/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -927,7 +927,7 @@
             }
 
             try {
-                const response = await fetch(`/api/knowledge/${id}`, {
+                const response = await fetch(`/api/legacy/knowledge/${id}`, {
                     method: 'DELETE'
                 });
 

@@ -17,6 +17,9 @@ from conversation.observability import (
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIEVAL_RESULTS = 5
+MAX_RESULT_CONTENT_CHARS = 2_000
+
 _trace_id: ContextVar[str | None] = ContextVar("trace_id", default=None)
 _request_trace: ContextVar[RequestTrace | None] = ContextVar("request_trace", default=None)
 
@@ -86,11 +89,16 @@ def record_retrieval(
     active = _request_trace.get()
     if active is None:
         return
+    bounded_results = []
+    for result in results[:MAX_RETRIEVAL_RESULTS]:
+        item = RunbookResult.model_validate(result, from_attributes=True)
+        item.content = item.content[:MAX_RESULT_CONTENT_CHARS]
+        bounded_results.append(item)
     active.retrievals.append(
         RetrievalTrace(
             query=query,
             collection=collection,
             duration_ms=duration_ms,
-            results=[RunbookResult.model_validate(result, from_attributes=True) for result in results],
+            results=bounded_results,
         )
     )

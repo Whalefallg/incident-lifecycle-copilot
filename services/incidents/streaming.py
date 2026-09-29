@@ -1,5 +1,4 @@
 from collections.abc import AsyncIterator, Callable
-from time import perf_counter
 from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import TypeAdapter
@@ -7,16 +6,11 @@ from pydantic import TypeAdapter
 from api.chat_handler import ConversationCoordinator
 from api.contracts.incidents import CreateMessageRequest
 from api.contracts.streaming import (
-    AgentCompletedEvent,
-    AgentPayload,
-    AgentStartedEvent,
     ErrorPayload,
     IncidentEventPayload,
     IncidentRecordedEvent,
     MessageCompletedEvent,
     MessageCompletedPayload,
-    MessageDeltaEvent,
-    MessageDeltaPayload,
     PostmortemGeneratedEvent,
     PostmortemGeneratedPayload,
     RequestCompletedEvent,
@@ -24,8 +18,6 @@ from api.contracts.streaming import (
     RequestStartedEvent,
     RetrievalCompletedEvent,
     RetrievalCompletedPayload,
-    RetrievalStartedEvent,
-    RetrievalStartedPayload,
     StreamErrorEvent,
     StreamEvent,
     WorkflowStateChangedEvent,
@@ -49,7 +41,7 @@ def serialize_sse(event: StreamEvent) -> str:
 
 
 class IncidentStreamingService:
-    """Translate one durable coordinator turn into ordered public SSE events."""
+    """Expose request progress and committed coordinator results as typed SSE."""
 
     def __init__(
         self,
@@ -80,12 +72,6 @@ class IncidentStreamingService:
             return event
 
         yield serialize_sse(envelope(RequestStartedEvent, {}))
-        is_replay = request.request_id in before.processed_requests
-        started_at = perf_counter()
-        if not is_replay:
-            yield serialize_sse(
-                envelope(AgentStartedEvent, AgentPayload(agent="TriageRouter"))
-            )
 
         try:
             coordinator = self.coordinator_factory(self.repository)
@@ -98,15 +84,6 @@ class IncidentStreamingService:
             after = await self.repository.load(incident_id)
             if after is None:
                 raise RuntimeError("incident snapshot disappeared after processing")
-
-            if not is_replay:
-                duration_ms = round((perf_counter() - started_at) * 1000)
-                yield serialize_sse(
-                    envelope(
-                        AgentCompletedEvent,
-                        AgentPayload(agent="TriageRouter", duration_ms=duration_ms),
-                    )
-                )
 
             if after.current_state != before.current_state:
                 yield serialize_sse(
@@ -125,9 +102,7 @@ class IncidentStreamingService:
                     yield serialize_sse(
                         envelope(
                             IncidentRecordedEvent,
-                            IncidentEventPayload(
-                                event=incident_event.model_dump(mode="json")
-                            ),
+                            IncidentEventPayload(event=incident_event.model_dump(mode="json")),
                         )
                     )
 
@@ -142,12 +117,6 @@ class IncidentStreamingService:
                         continue
                     yield serialize_sse(
                         envelope(
-                            RetrievalStartedEvent,
-                            RetrievalStartedPayload(query=retrieval.query),
-                        )
-                    )
-                    yield serialize_sse(
-                        envelope(
                             RetrievalCompletedEvent,
                             RetrievalCompletedPayload(
                                 query=retrieval.query,
@@ -157,17 +126,7 @@ class IncidentStreamingService:
                         )
                     )
 
-            for offset in range(0, len(response), 24):
-                yield serialize_sse(
-                    envelope(
-                        MessageDeltaEvent,
-                        MessageDeltaPayload(text=response[offset : offset + 24]),
-                    )
-                )
-
-            message_id = str(
-                uuid5(NAMESPACE_URL, f"{incident_id}:{request.request_id}:response")
-            )
+            message_id = str(uuid5(NAMESPACE_URL, f"{incident_id}:{request.request_id}:response"))
             yield serialize_sse(
                 envelope(
                     MessageCompletedEvent,
@@ -175,9 +134,7 @@ class IncidentStreamingService:
                 )
             )
 
-            known_drafts = {
-                draft.draft_id for draft in before.postmortem_context.drafts
-            }
+            known_drafts = {draft.draft_id for draft in before.postmortem_context.drafts}
             for draft in after.postmortem_context.drafts:
                 if draft.draft_id not in known_drafts:
                     yield serialize_sse(

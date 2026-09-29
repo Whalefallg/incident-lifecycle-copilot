@@ -1,9 +1,20 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { api } from "../../api/client";
 import { createMessageOperation, type MessageOperation, type StreamEvent } from "../../api/stream";
 import { useWorkspaceStore } from "../../stores/workspaceStore";
+
+export function refreshIncidentQueries(
+  queryClient: QueryClient,
+  incidentId: string,
+  event: StreamEvent,
+) {
+  if (["incident.event", "workflow.state_changed", "request.completed"].includes(event.type)) {
+    return queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
+  }
+  return Promise.resolve();
+}
 
 export function ConversationPanel({ incidentId }: { incidentId: string }) {
   const [message, setMessage] = useState("");
@@ -20,12 +31,7 @@ export function ConversationPanel({ incidentId }: { incidentId: string }) {
 
   const handleEvent = (event: StreamEvent) => {
     applyStreamEvent(incidentId, event);
-    if (["incident.event", "workflow.state_changed", "request.completed"].includes(event.type)) {
-      void queryClient.invalidateQueries({ queryKey: ["incidents", incidentId] });
-    }
-    if (event.type === "incident.event" || event.type === "request.completed") {
-      void queryClient.invalidateQueries({ queryKey: ["incidents", incidentId, "events"] });
-    }
+    void refreshIncidentQueries(queryClient, incidentId, event);
   };
 
   const runOperation = async (operation: MessageOperation) => {

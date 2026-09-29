@@ -22,9 +22,7 @@ def test_browser_session_cookie_is_stable():
 
 def test_invalid_session_header_is_replaced():
     with TestClient(app) as client:
-        response = client.get(
-            "/api/monitoring/health", headers={"X-Session-ID": "not-a-uuid"}
-        )
+        response = client.get("/api/monitoring/health", headers={"X-Session-ID": "not-a-uuid"})
 
     assert response.headers["X-Session-ID"] != "not-a-uuid"
     uuid.UUID(response.headers["X-Session-ID"])
@@ -40,11 +38,23 @@ def test_cache_clear_requires_admin_token():
 def test_knowledge_mutation_requires_admin_token():
     with TestClient(app) as client:
         response = client.post(
-            "/api/knowledge/",
+            "/api/legacy/knowledge/",
             json={"question": "q", "answer": "a", "category": "demo"},
         )
 
     assert response.status_code == 403
+
+
+def test_official_knowledge_mutation_uses_structured_forbidden_error():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/knowledge/drafts/missing/review",
+            json={"actor": "reviewer"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+    assert response.json()["error"]["message"] == "Admin access required"
 
 
 @pytest.mark.asyncio

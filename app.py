@@ -97,7 +97,7 @@ async def lifespan(_: FastAPI):
         await shutdown_system()
 
 
-def create_app() -> FastAPI:
+def create_app(*, frontend_dist: Path | None = None) -> FastAPI:
     """创建FastAPI应用实例"""
 
     app = FastAPI(
@@ -147,9 +147,9 @@ def create_app() -> FastAPI:
     app.include_router(web_router)
 
     app.mount("/static", StaticFiles(directory="web/static"), name="static")
-    frontend_dist = Path(__file__).parent / "frontend" / "dist"
-    if frontend_dist.joinpath("index.html").is_file():
-        app.mount("/", SPAStaticFiles(frontend_dist), name="frontend")
+    resolved_frontend_dist = frontend_dist or Path(__file__).parent / "frontend" / "dist"
+    if resolved_frontend_dist.joinpath("index.html").is_file():
+        app.mount("/", SPAStaticFiles(resolved_frontend_dist), name="frontend")
 
     return app
 

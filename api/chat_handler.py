@@ -13,7 +13,7 @@ from agents.consultant_agent import ConsultantAgent
 from agents.escalation_agent import EscalationAgent
 from agents.postmortem_agent import PostmortemAgent
 from agents.task_classification_agent import TaskClassificationAgent
-from config.request_trace import capture_request_trace, trace_step
+from config.request_trace import capture_request_trace
 from conversation.events import IncidentEvent, IncidentEventType
 from conversation.models import ConversationSnapshot, EscalationContext, SessionMessage
 from conversation.public_response import sanitize_public_response
@@ -81,18 +81,14 @@ class SessionAgents:
 
     def hydrate(self, snapshot: ConversationSnapshot) -> None:
         self.task_agent.hydrate(snapshot)
-        self.escalation_agent.restore_snapshot(
-            snapshot.escalation_context.to_legacy_dict()
-        )
+        self.escalation_agent.restore_snapshot(snapshot.escalation_context.to_legacy_dict())
         self.postmortem_agent.session_messages = [
             message.model_dump(mode="json") for message in snapshot.messages
         ]
         self.postmortem_agent.incident_events = [
             event.model_copy(deep=True) for event in snapshot.events
         ]
-        self.postmortem_agent.escalation_context = (
-            snapshot.escalation_context.model_copy(deep=True)
-        )
+        self.postmortem_agent.escalation_context = snapshot.escalation_context.model_copy(deep=True)
         self.postmortem_agent.next_draft_version = (
             max(
                 (draft.version for draft in snapshot.postmortem_context.drafts),
@@ -130,6 +126,7 @@ class SessionAgents:
 
 def _build_session_agents(session_id: str) -> SessionAgents:
     from agents.consultant.retrieval_runtime import get_retriever
+
     escalation_agent = EscalationAgent(session_id=session_id)
     consultant_agent = ConsultantAgent(session_id=session_id, retriever=get_retriever())
     communication_agent = CommunicationAgent(session_id=session_id)
@@ -188,9 +185,7 @@ class ConversationCoordinator:
         if snapshot:
             return snapshot
         try:
-            return await self.repository.create(
-                ConversationSnapshot(session_id=session_id)
-            )
+            return await self.repository.create(ConversationSnapshot(session_id=session_id))
         except ConversationAlreadyExists:
             snapshot = await self.repository.load(session_id)
             if snapshot is None:
@@ -215,9 +210,7 @@ class ConversationCoordinator:
                 separators=(",", ":"),
             ).encode("utf-8")
         ).hexdigest()
-        prior_response = await self.repository.claim_request(
-            idempotency_key, fingerprint
-        )
+        prior_response = await self.repository.claim_request(idempotency_key, fingerprint)
         if prior_response is not None:
             return prior_response
 
@@ -239,9 +232,8 @@ class ConversationCoordinator:
 
                 with capture_request_trace(request_id) as request_trace:
                     tokens: list[str] = []
-                    with trace_step("classify_and_route", agent="TriageRouter"):
-                        async for token in graph.task_agent.classify_task_stream(message):
-                            tokens.append(token)
+                    async for token in graph.task_agent.classify_task_stream(message):
+                        tokens.append(token)
                     response = sanitize_public_response("".join(tokens))
                     graph.apply_to_snapshot(snapshot)
                 snapshot.request_traces = [
@@ -256,9 +248,7 @@ class ConversationCoordinator:
                     if attempt + 1 >= self.max_retries:
                         raise
                     continue
-                await self.repository.complete_request(
-                    idempotency_key, fingerprint, response
-                )
+                await self.repository.complete_request(idempotency_key, fingerprint, response)
                 return response
         except Exception:
             await self.repository.abandon_request(idempotency_key, fingerprint)

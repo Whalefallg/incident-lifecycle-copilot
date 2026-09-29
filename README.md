@@ -25,11 +25,19 @@ Incident Lifecycle Copilot 将事故响应从一次性的 LLM 对话，建模为
 - **结构化 Incident Event Ledger**：先持久化事实，再基于事件生成时间线、沟通内容和复盘草稿。
 - **MCP RAG 集成**：通过稳定 `Retriever` 契约接入独立的混合检索服务，并隔离 MCP 生命周期、协议与错误处理。
 - **知识审核闭环**：知识草稿经过 `DRAFT → REVIEWED → APPROVED → INGESTED / REJECTED` 生命周期后才能进入知识库。
+- **Full-Stack Incident Workspace**：React + TypeScript 提供事故列表、对话、结构化 Timeline、Agent Trace、Runbook Evidence、事实/分析分离的 Postmortem 与 Knowledge Review。
+- **类型化交付链路**：OpenAPI 生成 TypeScript 契约，typed SSE 传递工作流事件，多阶段 Docker 镜像由 FastAPI 提供 SPA 与 API。
 
 ## 架构
 
 ```text
-FastAPI / request_id
+React Incident Workspace
+        |
+        +---- Typed REST reads and mutations
+        +---- Typed SSE request progress
+        |
+        v
+FastAPI / request_id / stable error envelope
         |
         v
 ConversationCoordinator
@@ -50,6 +58,8 @@ ConversationSnapshot
         |
         +---- Reviewed Knowledge Lifecycle
 ```
+
+SSE 提供类型化的请求进度与已提交结果，不宣称为实时 token streaming。`request.completed` 表示快照已经持久化，前端随后刷新该事故下的消息、时间线、检索证据、trace 与复盘查询。完整边界与演示步骤见 [`docs/FULLSTACK_ARCHITECTURE.md`](docs/FULLSTACK_ARCHITECTURE.md) 和 [`docs/FULLSTACK_DEMO.md`](docs/FULLSTACK_DEMO.md)。
 
 Agent 名称表示职责边界，而不是长期持有状态的独立服务。每个请求都会根据当前 `ConversationSnapshot` 构建新的执行图，处理完成后再以 revision 为条件写回持久层。
 
@@ -265,7 +275,7 @@ ruff format --check .
 mypy
 ```
 
-GitHub Actions 当前在 Python 3.11 上运行离线测试套件，并关闭外部 Redis、Semantic Cache 与 Model Routing 依赖，以保证 CI 可重复执行。
+GitHub Actions 分别运行 backend、frontend、浏览器 E2E 和 Docker production smoke。浏览器 E2E 使用 mocked API；Docker job 独立验证构建后的 React SPA、FastAPI、深层客户端路由、health 与 legacy 页面。
 
 ## 检索评估
 
@@ -300,7 +310,10 @@ python scripts/benchmark_retrieval.py
 ## 当前限制
 
 - 多 Worker 恢复依赖 Redis；内存 repository 仅适用于单进程开发与测试。
+- Redis repository 的跨事故列表查询使用 list scan，适合 demo 规模而非大型生产索引。
 - 当前 `rag-as-mcp` MCP surface 主要提供查询能力，尚未提供知识 ingestion tool。
+- 知识草稿当前最多推进到 `APPROVED`；缺少上游 ingestion tool 时不会伪造 `INGESTED`。
+- 请求 trace 采用有界保留，检索证据仅保存有限结果与正文摘录，不保存模型思维链。
 - 上游部分工具错误可能以普通文本返回，因此 adapter 仍包含已验证的错误语义兼容逻辑。
 - strict lint / type boundary 当前覆盖 correctness-critical 模块，而不是全部 legacy UI / service 代码。
 - 当前 benchmark artifact 尚未使用包含 golden runbooks 的上游 collection。
@@ -309,10 +322,12 @@ python scripts/benchmark_retrieval.py
 
 ```text
 agents/           Agent 与工作流职责
-api/              HTTP API 与 ConversationCoordinator
+api/              HTTP API、类型化 contracts 与 ConversationCoordinator
+services/incidents/ Incident 应用服务与 SSE 投影
 conversation/     Snapshot、Event、Repository 与 Redis CAS
 knowledge/        Knowledge draft 审核生命周期
 config/           Runtime 与 RAG MCP 配置
+frontend/         React + TypeScript Incident Workspace
 benchmarks/       Golden dataset 与检索评估结果
 scripts/          Benchmark 等工程脚本
 tests/            Unit / integration / live contract tests
@@ -345,11 +360,19 @@ The project integrates with [`rag-as-mcp`](https://github.com/Whalefallg/rag-as-
 - **Structured incident event ledger** — operational facts are persisted before timelines, communications, and postmortems are generated.
 - **MCP-based RAG integration** — retrieval is isolated behind a backend-neutral `Retriever` contract.
 - **Reviewed knowledge lifecycle** — generated knowledge must pass explicit review and approval before ingestion.
+- **Full-stack Incident Workspace** — React and TypeScript provide incident conversation, structured timeline, agent trace, runbook evidence, fact/analysis-separated postmortems, and knowledge review.
+- **Typed delivery path** — OpenAPI generates the TypeScript contract, typed SSE carries workflow events, and a multi-stage Docker image serves both the SPA and FastAPI API.
 
 ## Architecture
 
 ```text
-FastAPI / request_id
+React Incident Workspace
+        |
+        +---- typed REST reads and mutations
+        +---- typed SSE request progress
+        |
+        v
+FastAPI / request_id / stable error envelope
         |
         v
 ConversationCoordinator
@@ -370,6 +393,8 @@ ConversationSnapshot
         |
         +---- Reviewed Knowledge Lifecycle
 ```
+
+SSE carries typed request progress and committed results; it is not presented as real-time token streaming. `request.completed` means the snapshot is durable, after which the frontend refreshes messages, timeline, retrieval evidence, trace, and postmortem queries for that incident. See [`docs/FULLSTACK_ARCHITECTURE.md`](docs/FULLSTACK_ARCHITECTURE.md) and [`docs/FULLSTACK_DEMO.md`](docs/FULLSTACK_DEMO.md).
 
 Agent names represent responsibility boundaries, not long-lived stateful services. A fresh request graph is created from the latest `ConversationSnapshot`, executed, and then persisted with an expected revision.
 
@@ -585,7 +610,7 @@ ruff format --check .
 mypy
 ```
 
-GitHub Actions runs independent backend, frontend, fixture-backed Playwright, and Docker build jobs. The E2E scenario uses a fake model stream and fixture RAG data, so CI never depends on paid model APIs.
+GitHub Actions runs independent backend, frontend, browser E2E, and Docker production-smoke jobs. Browser E2E uses a mocked API; the Docker job separately verifies the built React SPA, FastAPI API, deep client routes, health endpoint, and legacy page.
 
 ## Retrieval Evaluation
 
@@ -620,7 +645,10 @@ The currently committed benchmark artifact demonstrates end-to-end protocol exec
 ## Current Limitations
 
 - Multi-worker recovery requires Redis; in-memory repositories are intended for single-process development and tests.
+- Cross-incident Redis listings use list scans and are intended for demo-scale data, not large production indexes.
 - The current `rag-as-mcp` MCP surface is primarily query-oriented and does not expose a knowledge-ingestion tool.
+- Knowledge drafts stop at `APPROVED` when that upstream ingestion capability is absent; the system does not claim `INGESTED`.
+- Request traces have bounded retention, and retrieval evidence stores bounded result excerpts rather than model chain-of-thought.
 - Some upstream tool failures may still arrive as ordinary text, so the adapter contains compatibility logic for verified error messages.
 - Strict lint and type checking currently targets correctness-critical modules rather than every legacy UI and service module.
 - The committed retrieval benchmark has not yet been rerun against an upstream collection containing the golden runbooks.
@@ -629,10 +657,12 @@ The currently committed benchmark artifact demonstrates end-to-end protocol exec
 
 ```text
 agents/           agent and workflow responsibilities
-api/              HTTP API and conversation coordination
+api/              HTTP API, typed contracts, and conversation coordination
+services/incidents/ incident application services and SSE projection
 conversation/     snapshots, events, repositories, and Redis CAS
 knowledge/        reviewed knowledge-draft lifecycle
 config/           runtime and RAG MCP configuration
+frontend/         React and TypeScript Incident Workspace
 benchmarks/       golden retrieval dataset and result artifacts
 scripts/          benchmark and engineering utilities
 tests/            unit, integration, and live contract coverage
