@@ -202,7 +202,7 @@ python scripts/benchmark_incidents.py \
 
 The command also writes `latest.md`. Use `--scenario`, `--category`, `--backend memory|redis`, and `--retriever local|mcp` to select a profile. Reports keep deterministic contract, live MCP, and Redis recovery results in separate layers rather than averaging them into an “overall accuracy.”
 
-The memory-backed baseline validates workflow invariants and does not represent retrieval quality or production availability. The combined profile passed **3/3** real Redis recovery cases and **9/9** live MCP scenarios through `McpRagClient -> stdio -> rag-as-mcp -> opsbench_v1`. Live retrieval success and evidence persistence were both 100%, with p50 2.273 ms and p95 15.608 ms. The exact upstream corpus revision is pinned in `benchmarks/opsbench_dependency.json`.
+The memory-backed baseline validates workflow invariants and does not represent retrieval quality or production availability. The combined profile passed **3/3** real Redis recovery cases and **9/9** live MCP scenarios through `McpRagClient -> stdio -> rag-as-mcp -> opsbench_v1`. Live retrieval success and evidence persistence were both 100%, with p50 2.214 ms and p95 18.693 ms. The exact upstream corpus revision is pinned in `benchmarks/opsbench_dependency.json`.
 
 ### RAG 运行模式
 

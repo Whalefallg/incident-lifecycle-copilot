@@ -39,6 +39,6 @@ The Redis layer creates fresh repository and FSM objects for workers A and B, sh
 
 The MCP layer validates the configured path and Python executable, starts the real stdio server, performs initialize, tools/list, ping and list_collections, and requires `opsbench_v1`. It runs only the nine scenarios marked `live_mcp`. Missing prerequisites or collections are reported as `SKIPPED`; there is no local fallback in this profile.
 
-Current measured combined status on this checkout: all **3/3 Redis recovery scenarios passed** against an isolated local Redis process, and **9/9 live MCP scenarios passed** through `McpRagClient -> stdio -> rag-as-mcp -> opsbench_v1`. The live layer recorded 100% retrieval success, 100% evidence persistence, p50 2.273 ms, and p95 15.608 ms against pinned rag commit `74fd31d57bce8275c72d79c3d8590d0be42333fa`.
+Current measured combined status on this checkout: all **3/3 Redis recovery scenarios passed** against an isolated local Redis process, and **9/9 live MCP scenarios passed** through `McpRagClient -> stdio -> rag-as-mcp -> opsbench_v1`. The live layer recorded 100% retrieval success, 100% evidence persistence, p50 2.214 ms, and p95 18.693 ms against pinned rag commit `74fd31d57bce8275c72d79c3d8590d0be42333fa`.
 
 No result artifact is committed until the benchmark has actually been executed. Regression gates may be added only after a stable baseline exists; they are not product SLAs.
