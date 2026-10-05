@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -146,6 +147,13 @@ class McpRagClient:
     async def ping(self) -> None:
         self._require_started()
         await self._request("ping", {})
+
+    async def list_collections(self) -> set[str]:
+        """Return collection names through the public MCP tool boundary."""
+        self._require_started()
+        result = await self._request("tools/call", {"name": "list_collections", "arguments": {}})
+        text = self.parser._text(result)
+        return set(re.findall(r"^- \*\*(.+?)\*\*：", text, re.MULTILINE))
 
     async def query(
         self, query: str, *, top_k: int = 10, collection: str | None = None

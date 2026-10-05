@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import math
 import statistics
 import sys
 import time
@@ -16,8 +17,11 @@ from config.rag_mcp import RagMcpSettings
 
 
 def percentile(values, fraction):
+    """Nearest-rank percentile (1-indexed), defined for a non-empty sample."""
+    if not values:
+        raise ValueError("percentile requires at least one value")
     ordered = sorted(values)
-    return ordered[min(int(len(ordered) * fraction), len(ordered) - 1)]
+    return ordered[max(0, math.ceil(len(ordered) * fraction) - 1)]
 
 
 async def git_revision(path: Path) -> str:
@@ -60,7 +64,6 @@ async def run(dataset_path, output_path, top_k):
         if caps is None:
             raise RuntimeError("rag-as-mcp capabilities disappeared during benchmark")
         rag_commit = await git_revision(settings.server_path)
-        targets = {"hit_rate_at_k": 0.90, "mrr": 0.80, "recall_at_k": 0.80, "p95_ms_max": 2000}
         metrics = {
             "hit_rate_at_k": statistics.mean(row["hit"] for row in rows),
             "mrr": statistics.mean(row["reciprocal_rank"] for row in rows),
@@ -79,12 +82,7 @@ async def run(dataset_path, output_path, top_k):
                 "query_count": len(rows),
             },
             "rag_mcp_commit": rag_commit,
-            "targets": targets,
             "metrics": metrics,
-            "meets_targets": metrics["hit_rate_at_k"] >= targets["hit_rate_at_k"]
-            and metrics["mrr"] >= targets["mrr"]
-            and metrics["recall_at_k"] >= targets["recall_at_k"]
-            and metrics["p95_ms"] < targets["p95_ms_max"],
             "queries": rows,
         }
         output_path.write_text(

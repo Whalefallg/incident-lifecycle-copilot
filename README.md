@@ -188,7 +188,23 @@ DRAFT -> REVIEWED -> APPROVED -> INGESTED
 | CommunicationAgent | 基于已记录事实生成干系人更新 |
 | PostmortemAgent | 基于结构化事件账本生成复盘草稿 |
 
-## RAG 运行模式
+## IncidentBench v1
+
+Retrieval quality belongs to the upstream `rag-as-mcp` OpsBench suite. IncidentBench evaluates workflow correctness: state transitions, retrieval integration, suspend/resume, request idempotency, optimistic concurrency, evidence persistence, degraded MCP behavior, and postmortem consistency.
+
+The repository contains 30 fixed, human-readable scenarios under `benchmarks/incidentbench_v1/scenarios`. The first-stage evaluator is deterministic and inspects real `ConversationSnapshot`, Incident Event, Request Trace, Retrieval Evidence, FSM, idempotency, and CAS contracts; it does not collapse these checks into an LLM-judged “accuracy” score.
+
+```bash
+python scripts/benchmark_incidents.py \
+  --dataset benchmarks/incidentbench_v1 \
+  --output benchmarks/incidentbench_v1/reports/latest.json
+```
+
+The command also writes `latest.md`. Use `--scenario`, `--category`, `--backend memory|redis`, and `--retriever local|mcp` to select a profile. Reports keep deterministic contract, live MCP, and Redis recovery results in separate layers rather than averaging them into an “overall accuracy.”
+
+The memory-backed baseline validates workflow invariants and does not represent retrieval quality or production availability. The combined profile passed **3/3** real Redis recovery cases and **9/9** live MCP scenarios through `McpRagClient -> stdio -> rag-as-mcp -> opsbench_v1`. Live retrieval success and evidence persistence were both 100%, with p50 2.273 ms and p95 15.608 ms. The exact upstream corpus revision is pinned in `benchmarks/opsbench_dependency.json`.
+
+### RAG 运行模式
 
 ```text
 RAG_MODE=local
@@ -794,7 +810,7 @@ RAG_MCP_PYTHON=/path/to/rag-as-mcp/.venv/bin/python \
 python scripts/benchmark_retrieval.py
 ```
 
-The currently committed benchmark artifact demonstrates end-to-end protocol execution. The upstream `default` collection used in that run did not contain the Incident golden runbooks, so the stored result should not be interpreted as a retrieval-quality claim. Quality metrics should be rerun after ingesting the fixed benchmark corpus.
+The committed combined artifact demonstrates end-to-end protocol execution against `opsbench_v1`. IncidentBench measures workflow integration and evidence persistence; retrieval-quality metrics and slice analysis remain owned by the upstream OpsBench report.
 
 ## Current Limitations
 
@@ -805,7 +821,6 @@ The currently committed benchmark artifact demonstrates end-to-end protocol exec
 - Request traces have bounded retention, and retrieval evidence stores bounded result excerpts rather than model chain-of-thought.
 - Some upstream tool failures may still arrive as ordinary text, so the adapter contains compatibility logic for verified error messages.
 - Strict lint and type checking currently targets correctness-critical modules rather than every legacy UI and service module.
-- The committed retrieval benchmark has not yet been rerun against an upstream collection containing the golden runbooks.
 
 ## Repository Structure
 

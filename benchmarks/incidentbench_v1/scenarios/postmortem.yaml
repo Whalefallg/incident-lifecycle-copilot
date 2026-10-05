@@ -1,0 +1,34 @@
+- id: postmortem-checkout-001
+  title: Checkout postmortem covers recorded facts
+  category: postmortem
+  live_mcp: true
+  steps:
+    - {action: retrieve, request_id: pm-1-r, content: Postgres pool exhausted after checkout deployment, document_ids: [postgres-connection-pool-runbook]}
+    - {action: event, request_id: pm-1, event_type: impact_updated, facts: {error_rate: 18%}}
+    - {action: respond, content: Checkout error rate reached 18% and the Postgres pool was exhausted. SEV-1 escalation was initiated.}
+  expectations:
+    required_event_types: [impact_updated]
+    required_facts: [{id: error-rate, any_of: [18% error rate, error rate reached 18%]}, {id: pool, any_of: [postgres pool was exhausted, postgres pool exhausted]}, {id: severity, any_of: [SEV-1 escalation]}]
+    forbidden_claims: [database corruption, permanent customer data loss]
+- id: postmortem-redis-002
+  title: Redis postmortem covers mitigation
+  category: postmortem
+  live_mcp: true
+  steps:
+    - {action: retrieve, request_id: pm-2-r, content: Redis maxmemory pressure mitigation, document_ids: [redis-oom-runbook]}
+    - {action: event, request_id: pm-2, event_type: mitigation_executed, facts: {action: rollback}}
+    - {action: respond, content: Redis memory pressure followed the deployment and rollback mitigated the incident.}
+  expectations:
+    required_event_types: [mitigation_executed]
+    required_facts: [{id: cause, any_of: [memory pressure]}, {id: mitigation, any_of: [rollback mitigated]}]
+    forbidden_claims: [data loss]
+- id: postmortem-payment-003
+  title: Payment postmortem covers timeout evidence
+  category: postmortem
+  steps:
+    - {action: event, request_id: pm-3, event_type: incident_resolved, facts: {service: payments}}
+    - {action: respond, content: Payment gateway timeouts recovered after traffic was shifted to the secondary provider.}
+  expectations:
+    required_event_types: [incident_resolved]
+    required_facts: [{id: symptom, any_of: [payment gateway timeouts]}, {id: mitigation, any_of: [traffic was shifted to the secondary provider]}]
+    forbidden_claims: [card data exposure]

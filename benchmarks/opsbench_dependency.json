@@ -1,0 +1,8 @@
+{
+  "dataset": "opsbench-v1",
+  "rag_repo": "Whalefallg/rag-as-mcp",
+  "expected_collection": "opsbench_v1",
+  "rag_commit": "74fd31d57bce8275c72d79c3d8590d0be42333fa",
+  "incident_live_benchmark_executed": true,
+  "note": "Pinned to the committed OpsBench v1 report revision used by the combined live MCP benchmark."
+}

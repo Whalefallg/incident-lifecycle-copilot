@@ -1,0 +1,30 @@
+- id: retrieval-redis-001
+  title: Retrieve Redis OOM runbook
+  category: retrieval
+  live_mcp: true
+  steps: [{action: retrieve, request_id: rr-1, content: Redis maxmemory mitigation, document_ids: [redis-oom-runbook]}]
+  expectations: {required_document_ids: [redis-oom-runbook], required_event_types: [runbook_retrieved]}
+- id: retrieval-postgres-002
+  title: Retrieve Postgres pool runbook
+  category: retrieval
+  live_mcp: true
+  steps: [{action: retrieve, request_id: rr-2, content: Postgres pool exhausted mitigation, document_ids: [postgres-connection-pool-runbook]}]
+  expectations: {required_document_ids: [postgres-connection-pool-runbook]}
+- id: retrieval-checkout-003
+  title: Retrieve checkout deployment runbook
+  category: retrieval
+  live_mcp: true
+  steps: [{action: retrieve, request_id: rr-3, content: Checkout errors after deployment rollback, document_ids: [checkout-deployment-regression-runbook]}]
+  expectations: {required_document_ids: [checkout-deployment-regression-runbook]}
+- id: retrieval-payment-004
+  title: Retrieve payment gateway timeout runbook
+  category: retrieval
+  live_mcp: true
+  steps: [{action: retrieve, request_id: rr-4, content: Payment gateway timeout mitigation, document_ids: [payment-gateway-timeout-runbook]}]
+  expectations: {required_document_ids: [payment-gateway-timeout-runbook]}
+- id: retrieval-lambda-005
+  title: Retrieve Lambda timeout runbook
+  category: retrieval
+  live_mcp: true
+  steps: [{action: retrieve, request_id: rr-5, content: Lambda execution timeout mitigation, document_ids: [lambda-execution-timeout-runbook]}]
+  expectations: {required_document_ids: [lambda-execution-timeout-runbook]}

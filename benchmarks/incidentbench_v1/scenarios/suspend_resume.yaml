@@ -1,0 +1,26 @@
+- id: suspend-redis-001
+  title: Suspend escalation for Redis question and resume
+  category: suspend_resume
+  live_mcp: true
+  initial_state: {state: escalation, escalation_context: {service: checkout, severity: SEV-1}}
+  steps: [{action: suspend}, {action: retrieve, request_id: sr-1, content: Redis maxmemory mitigation, document_ids: [redis-oom-runbook]}, {action: resume}]
+  expectations: {final_state: escalation, required_states: [classify, escalation], required_document_ids: [redis-oom-runbook]}
+- id: suspend-postgres-002
+  title: Preserve context around Postgres lookup
+  category: suspend_resume
+  live_mcp: true
+  initial_state: {state: escalation, escalation_context: {service: checkout, impact_scope: global}}
+  steps: [{action: suspend}, {action: retrieve, request_id: sr-2, content: Postgres pool mitigation, document_ids: [postgres-connection-pool-runbook]}, {action: resume}]
+  expectations: {final_state: escalation, required_event_types: [runbook_retrieved]}
+- id: suspend-comms-003
+  title: Suspend escalation for communication task
+  category: suspend_resume
+  initial_state: {state: escalation, escalation_context: {service: payments}}
+  steps: [{action: suspend}, {action: event, request_id: sr-3, event_type: status_update_drafted}, {action: resume}]
+  expectations: {final_state: escalation, required_event_types: [status_update_drafted]}
+- id: suspend-lifo-004
+  title: Resume one persisted suspended frame
+  category: suspend_resume
+  initial_state: {state: escalation, escalation_context: {service: api}}
+  steps: [{action: suspend}, {action: resume}]
+  expectations: {final_state: escalation, required_states: [classify, escalation]}

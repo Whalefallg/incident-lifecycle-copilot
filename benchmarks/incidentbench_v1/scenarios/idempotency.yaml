@@ -1,0 +1,20 @@
+- id: idempotency-escalation-001
+  title: Duplicate escalation request is stable
+  category: idempotency
+  steps: [{action: idempotent_retry, request_id: idem-1, content: escalate checkout}]
+  expectations: {idempotency_required: true, mismatch_rejected: true, duplicate_event_count: 0}
+- id: idempotency-runbook-002
+  title: Duplicate runbook request is stable
+  category: idempotency
+  steps: [{action: idempotent_retry, request_id: idem-2, content: find redis runbook}]
+  expectations: {idempotency_required: true, mismatch_rejected: true}
+- id: idempotency-comms-003
+  title: Duplicate communication request is stable
+  category: idempotency
+  steps: [{action: idempotent_retry, request_id: idem-3, content: draft update}]
+  expectations: {idempotency_required: true, mismatch_rejected: true}
+- id: idempotency-postmortem-004
+  title: Duplicate postmortem request is stable
+  category: idempotency
+  steps: [{action: idempotent_retry, request_id: idem-4, content: generate postmortem}]
+  expectations: {idempotency_required: true, mismatch_rejected: true}
