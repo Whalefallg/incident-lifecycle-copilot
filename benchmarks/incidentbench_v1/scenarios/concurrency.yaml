@@ -1,0 +1,15 @@
+- id: concurrency-checkout-001
+  title: Reject stale checkout worker write
+  category: concurrency
+  steps: [{action: stale_write}]
+  expectations: {stale_write_rejected: true}
+- id: concurrency-payment-002
+  title: Reject stale payment worker write
+  category: concurrency
+  steps: [{action: stale_write}]
+  expectations: {stale_write_rejected: true}
+- id: concurrency-redis-003
+  title: Reject stale Redis incident write
+  category: concurrency
+  steps: [{action: stale_write}]
+  expectations: {stale_write_rejected: true}

@@ -1,0 +1,15 @@
+- id: degraded-startup-auto-001
+  title: Auto mode startup failure falls back explicitly
+  category: degraded
+  steps: [{action: mcp_failure, failure: startup_auto}]
+  expectations: {degraded_outcome: fallback}
+- id: degraded-runtime-002
+  title: Runtime MCP query failure is surfaced
+  category: degraded
+  steps: [{action: mcp_failure, failure: runtime_query}]
+  expectations: {degraded_outcome: surfaced}
+- id: degraded-malformed-003
+  title: Malformed MCP tool response is surfaced
+  category: degraded
+  steps: [{action: mcp_failure, failure: malformed_response}]
+  expectations: {degraded_outcome: surfaced}

@@ -1,0 +1,44 @@
+- id: basic-escalation-001
+  title: Enter checkout escalation
+  category: basic
+  steps:
+    - {action: event, request_id: req-1, event_type: alert_received, facts: {service: checkout}}
+    - {action: transition, state: escalation}
+  expectations: {final_state: escalation, required_states: [classify, escalation], required_event_types: [alert_received], duplicate_event_count: 0}
+- id: basic-runbook-002
+  title: Enter runbook lookup
+  category: basic
+  steps: [{action: transition, state: runbook_lookup}]
+  expectations: {final_state: runbook_lookup, required_states: [runbook_lookup]}
+- id: basic-comms-003
+  title: Enter stakeholder communication drafting
+  category: basic
+  steps: [{action: transition, state: comms_drafting}, {action: event, request_id: req-3, event_type: status_update_drafted}]
+  expectations: {final_state: comms_drafting, required_event_types: [status_update_drafted]}
+- id: basic-postmortem-004
+  title: Enter postmortem workflow
+  category: basic
+  steps: [{action: transition, state: postmortem}]
+  expectations: {final_state: postmortem, required_states: [postmortem]}
+- id: basic-severity-005
+  title: Persist severity classification event
+  category: basic
+  steps: [{action: event, request_id: req-5, event_type: severity_classified, facts: {severity: SEV-1}}]
+  expectations: {final_state: classify, required_event_types: [severity_classified], duplicate_event_count: 0}
+- id: basic-impact-006
+  title: Persist impact update
+  category: basic
+  steps: [{action: event, request_id: req-6, event_type: impact_updated, facts: {error_rate: 18%}}]
+  expectations: {required_event_types: [impact_updated]}
+- id: basic-mitigation-007
+  title: Persist mitigation lifecycle
+  category: basic
+  steps:
+    - {action: event, request_id: req-7a, event_type: mitigation_proposed}
+    - {action: event, request_id: req-7b, event_type: mitigation_executed}
+  expectations: {required_event_types: [mitigation_proposed, mitigation_executed], duplicate_event_count: 0}
+- id: basic-resolution-008
+  title: Persist resolved incident
+  category: basic
+  steps: [{action: event, request_id: req-8, event_type: incident_resolved}]
+  expectations: {required_event_types: [incident_resolved], forbidden_event_types: [oncall_dispatched]}

@@ -33,6 +33,34 @@ jobs:
           MODEL_ROUTING_ENABLED: "false"
         run: python -m pytest -q
 
+  incidentbench-redis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Redis cross-worker IncidentBench
+        env:
+          INCIDENTBENCH_REDIS_URL: redis://127.0.0.1:6379/15
+        run: |
+          python scripts/benchmark_incidents.py --backend redis --retriever local --output /tmp/incidentbench.json
+          python -c 'import json; p=json.load(open("/tmp/incidentbench.json")); assert p["layers"]["redis_recovery"]["status"] == "passed"'
+
   frontend:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

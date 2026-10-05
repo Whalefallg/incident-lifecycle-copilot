@@ -1,0 +1,1182 @@
+{
+  "metadata": {
+    "dataset_version": "incidentbench-v1",
+    "dataset_hash": "2f47ebff1e848dd32a7506c795e48c89741fbccfb7d71b97b017714557f20fb6",
+    "timestamp": "2026-10-05T11:03:01.965378+00:00",
+    "git_dirty": false,
+    "state_backend": "redis",
+    "retrieval_backend": "mcp",
+    "incident_repo_commit": "85b6ff6a886e482963191f113bc70f579a90159d",
+    "rag_repo_commit": "74fd31d57bce8275c72d79c3d8590d0be42333fa",
+    "rag_collection": "opsbench_v1",
+    "rag_server_version": "0.1.0",
+    "execution_mode": "layered_incidentbench",
+    "scenario_count": 30,
+    "filters": {
+      "scenario": null,
+      "category": null
+    }
+  },
+  "metrics": {
+    "scenario_success_rate": 1.0,
+    "retrieval_success_rate": 1.0,
+    "fsm_assertion_pass_rate": 1.0,
+    "suspend_resume_success_rate": 1.0,
+    "idempotent_retry_success_rate": 1.0,
+    "duplicate_event_rate": 0.0,
+    "stale_write_rejection_rate": 1.0,
+    "postmortem_fact_coverage": 1.0,
+    "unsupported_claim_rate": 0.0,
+    "p95_scenario_latency_ms": 0.387,
+    "categories": {
+      "basic": {
+        "cases": 8,
+        "success_rate": 1.0
+      },
+      "concurrency": {
+        "cases": 3,
+        "success_rate": 1.0
+      },
+      "degraded": {
+        "cases": 3,
+        "success_rate": 1.0
+      },
+      "idempotency": {
+        "cases": 4,
+        "success_rate": 1.0
+      },
+      "postmortem": {
+        "cases": 3,
+        "success_rate": 1.0
+      },
+      "retrieval": {
+        "cases": 5,
+        "success_rate": 1.0
+      },
+      "suspend_resume": {
+        "cases": 4,
+        "success_rate": 1.0
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "basic-escalation-001",
+      "title": "Enter checkout escalation",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.77,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "escalation"
+        },
+        {
+          "name": "state:classify",
+          "passed": true,
+          "actual": [
+            "classify",
+            "escalation"
+          ]
+        },
+        {
+          "name": "state:escalation",
+          "passed": true,
+          "actual": [
+            "classify",
+            "escalation"
+          ]
+        },
+        {
+          "name": "event:alert_received",
+          "passed": true,
+          "actual": [
+            "alert_received"
+          ]
+        },
+        {
+          "name": "duplicate_event_count",
+          "passed": true,
+          "actual": 0
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-runbook-002",
+      "title": "Enter runbook lookup",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.111,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "runbook_lookup"
+        },
+        {
+          "name": "state:runbook_lookup",
+          "passed": true,
+          "actual": [
+            "classify",
+            "runbook_lookup"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-comms-003",
+      "title": "Enter stakeholder communication drafting",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.163,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "comms_drafting"
+        },
+        {
+          "name": "event:status_update_drafted",
+          "passed": true,
+          "actual": [
+            "status_update_drafted"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-postmortem-004",
+      "title": "Enter postmortem workflow",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.094,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "postmortem"
+        },
+        {
+          "name": "state:postmortem",
+          "passed": true,
+          "actual": [
+            "classify",
+            "postmortem"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-severity-005",
+      "title": "Persist severity classification event",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.116,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "classify"
+        },
+        {
+          "name": "event:severity_classified",
+          "passed": true,
+          "actual": [
+            "severity_classified"
+          ]
+        },
+        {
+          "name": "duplicate_event_count",
+          "passed": true,
+          "actual": 0
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-impact-006",
+      "title": "Persist impact update",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.109,
+      "assertions": [
+        {
+          "name": "event:impact_updated",
+          "passed": true,
+          "actual": [
+            "impact_updated"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-mitigation-007",
+      "title": "Persist mitigation lifecycle",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.181,
+      "assertions": [
+        {
+          "name": "event:mitigation_proposed",
+          "passed": true,
+          "actual": [
+            "mitigation_executed",
+            "mitigation_proposed"
+          ]
+        },
+        {
+          "name": "event:mitigation_executed",
+          "passed": true,
+          "actual": [
+            "mitigation_executed",
+            "mitigation_proposed"
+          ]
+        },
+        {
+          "name": "duplicate_event_count",
+          "passed": true,
+          "actual": 0
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "basic-resolution-008",
+      "title": "Persist resolved incident",
+      "category": "basic",
+      "status": "passed",
+      "latency_ms": 0.106,
+      "assertions": [
+        {
+          "name": "event:incident_resolved",
+          "passed": true,
+          "actual": [
+            "incident_resolved"
+          ]
+        },
+        {
+          "name": "forbidden_event:oncall_dispatched",
+          "passed": true,
+          "actual": [
+            "incident_resolved"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "concurrency-checkout-001",
+      "title": "Reject stale checkout worker write",
+      "category": "concurrency",
+      "status": "passed",
+      "latency_ms": 0.122,
+      "assertions": [
+        {
+          "name": "stale_write_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "concurrency-payment-002",
+      "title": "Reject stale payment worker write",
+      "category": "concurrency",
+      "status": "passed",
+      "latency_ms": 0.118,
+      "assertions": [
+        {
+          "name": "stale_write_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "concurrency-redis-003",
+      "title": "Reject stale Redis incident write",
+      "category": "concurrency",
+      "status": "passed",
+      "latency_ms": 0.117,
+      "assertions": [
+        {
+          "name": "stale_write_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "degraded-startup-auto-001",
+      "title": "Auto mode startup failure falls back explicitly",
+      "category": "degraded",
+      "status": "passed",
+      "latency_ms": 0.091,
+      "assertions": [
+        {
+          "name": "degraded_outcome",
+          "passed": true,
+          "actual": "fallback"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "degraded-runtime-002",
+      "title": "Runtime MCP query failure is surfaced",
+      "category": "degraded",
+      "status": "passed",
+      "latency_ms": 0.09,
+      "assertions": [
+        {
+          "name": "degraded_outcome",
+          "passed": true,
+          "actual": "surfaced"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "degraded-malformed-003",
+      "title": "Malformed MCP tool response is surfaced",
+      "category": "degraded",
+      "status": "passed",
+      "latency_ms": 0.09,
+      "assertions": [
+        {
+          "name": "degraded_outcome",
+          "passed": true,
+          "actual": "surfaced"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "idempotency-escalation-001",
+      "title": "Duplicate escalation request is stable",
+      "category": "idempotency",
+      "status": "passed",
+      "latency_ms": 0.103,
+      "assertions": [
+        {
+          "name": "duplicate_event_count",
+          "passed": true,
+          "actual": 0
+        },
+        {
+          "name": "idempotency_required",
+          "passed": true,
+          "actual": true
+        },
+        {
+          "name": "mismatch_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "idempotency-runbook-002",
+      "title": "Duplicate runbook request is stable",
+      "category": "idempotency",
+      "status": "passed",
+      "latency_ms": 0.097,
+      "assertions": [
+        {
+          "name": "idempotency_required",
+          "passed": true,
+          "actual": true
+        },
+        {
+          "name": "mismatch_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "idempotency-comms-003",
+      "title": "Duplicate communication request is stable",
+      "category": "idempotency",
+      "status": "passed",
+      "latency_ms": 0.109,
+      "assertions": [
+        {
+          "name": "idempotency_required",
+          "passed": true,
+          "actual": true
+        },
+        {
+          "name": "mismatch_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "idempotency-postmortem-004",
+      "title": "Duplicate postmortem request is stable",
+      "category": "idempotency",
+      "status": "passed",
+      "latency_ms": 0.094,
+      "assertions": [
+        {
+          "name": "idempotency_required",
+          "passed": true,
+          "actual": true
+        },
+        {
+          "name": "mismatch_rejected",
+          "passed": true,
+          "actual": true
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "postmortem-checkout-001",
+      "title": "Checkout postmortem covers recorded facts",
+      "category": "postmortem",
+      "status": "passed",
+      "latency_ms": 0.387,
+      "assertions": [
+        {
+          "name": "event:impact_updated",
+          "passed": true,
+          "actual": [
+            "impact_updated",
+            "runbook_retrieved"
+          ]
+        },
+        {
+          "name": "required_facts",
+          "passed": true,
+          "actual": {
+            "matched": 3,
+            "total": 3
+          }
+        },
+        {
+          "name": "forbidden_claim:database corruption",
+          "passed": true,
+          "actual": "database corruption"
+        },
+        {
+          "name": "forbidden_claim:permanent customer data loss",
+          "passed": true,
+          "actual": "permanent customer data loss"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": 1.0,
+        "unsupported_claim_rate": 0.0
+      }
+    },
+    {
+      "id": "postmortem-redis-002",
+      "title": "Redis postmortem covers mitigation",
+      "category": "postmortem",
+      "status": "passed",
+      "latency_ms": 0.344,
+      "assertions": [
+        {
+          "name": "event:mitigation_executed",
+          "passed": true,
+          "actual": [
+            "mitigation_executed",
+            "runbook_retrieved"
+          ]
+        },
+        {
+          "name": "required_facts",
+          "passed": true,
+          "actual": {
+            "matched": 2,
+            "total": 2
+          }
+        },
+        {
+          "name": "forbidden_claim:data loss",
+          "passed": true,
+          "actual": "data loss"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": 1.0,
+        "unsupported_claim_rate": 0.0
+      }
+    },
+    {
+      "id": "postmortem-payment-003",
+      "title": "Payment postmortem covers timeout evidence",
+      "category": "postmortem",
+      "status": "passed",
+      "latency_ms": 0.183,
+      "assertions": [
+        {
+          "name": "event:incident_resolved",
+          "passed": true,
+          "actual": [
+            "incident_resolved"
+          ]
+        },
+        {
+          "name": "required_facts",
+          "passed": true,
+          "actual": {
+            "matched": 2,
+            "total": 2
+          }
+        },
+        {
+          "name": "forbidden_claim:card data exposure",
+          "passed": true,
+          "actual": "card data exposure"
+        }
+      ],
+      "metrics": {
+        "fact_coverage": 1.0,
+        "unsupported_claim_rate": 0.0
+      }
+    },
+    {
+      "id": "retrieval-redis-001",
+      "title": "Retrieve Redis OOM runbook",
+      "category": "retrieval",
+      "status": "passed",
+      "latency_ms": 0.141,
+      "assertions": [
+        {
+          "name": "event:runbook_retrieved",
+          "passed": true,
+          "actual": [
+            "runbook_retrieved"
+          ]
+        },
+        {
+          "name": "document:redis-oom-runbook",
+          "passed": true,
+          "actual": [
+            "redis-oom-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "retrieval-postgres-002",
+      "title": "Retrieve Postgres pool runbook",
+      "category": "retrieval",
+      "status": "passed",
+      "latency_ms": 0.141,
+      "assertions": [
+        {
+          "name": "document:postgres-connection-pool-runbook",
+          "passed": true,
+          "actual": [
+            "postgres-connection-pool-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "retrieval-checkout-003",
+      "title": "Retrieve checkout deployment runbook",
+      "category": "retrieval",
+      "status": "passed",
+      "latency_ms": 0.143,
+      "assertions": [
+        {
+          "name": "document:checkout-deployment-regression-runbook",
+          "passed": true,
+          "actual": [
+            "checkout-deployment-regression-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "retrieval-payment-004",
+      "title": "Retrieve payment gateway timeout runbook",
+      "category": "retrieval",
+      "status": "passed",
+      "latency_ms": 0.138,
+      "assertions": [
+        {
+          "name": "document:payment-gateway-timeout-runbook",
+          "passed": true,
+          "actual": [
+            "payment-gateway-timeout-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "retrieval-lambda-005",
+      "title": "Retrieve Lambda timeout runbook",
+      "category": "retrieval",
+      "status": "passed",
+      "latency_ms": 0.148,
+      "assertions": [
+        {
+          "name": "document:lambda-execution-timeout-runbook",
+          "passed": true,
+          "actual": [
+            "lambda-execution-timeout-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "suspend-redis-001",
+      "title": "Suspend escalation for Redis question and resume",
+      "category": "suspend_resume",
+      "status": "passed",
+      "latency_ms": 0.366,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "escalation"
+        },
+        {
+          "name": "state:classify",
+          "passed": true,
+          "actual": [
+            "escalation",
+            "classify",
+            "escalation"
+          ]
+        },
+        {
+          "name": "state:escalation",
+          "passed": true,
+          "actual": [
+            "escalation",
+            "classify",
+            "escalation"
+          ]
+        },
+        {
+          "name": "document:redis-oom-runbook",
+          "passed": true,
+          "actual": [
+            "redis-oom-runbook"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "suspend-postgres-002",
+      "title": "Preserve context around Postgres lookup",
+      "category": "suspend_resume",
+      "status": "passed",
+      "latency_ms": 0.33,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "escalation"
+        },
+        {
+          "name": "event:runbook_retrieved",
+          "passed": true,
+          "actual": [
+            "runbook_retrieved"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "suspend-comms-003",
+      "title": "Suspend escalation for communication task",
+      "category": "suspend_resume",
+      "status": "passed",
+      "latency_ms": 0.253,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "escalation"
+        },
+        {
+          "name": "event:status_update_drafted",
+          "passed": true,
+          "actual": [
+            "status_update_drafted"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    },
+    {
+      "id": "suspend-lifo-004",
+      "title": "Resume one persisted suspended frame",
+      "category": "suspend_resume",
+      "status": "passed",
+      "latency_ms": 0.166,
+      "assertions": [
+        {
+          "name": "final_state",
+          "passed": true,
+          "actual": "escalation"
+        },
+        {
+          "name": "state:classify",
+          "passed": true,
+          "actual": [
+            "escalation",
+            "classify",
+            "escalation"
+          ]
+        },
+        {
+          "name": "state:escalation",
+          "passed": true,
+          "actual": [
+            "escalation",
+            "classify",
+            "escalation"
+          ]
+        }
+      ],
+      "metrics": {
+        "fact_coverage": null,
+        "unsupported_claim_rate": null
+      }
+    }
+  ],
+  "layers": {
+    "deterministic_contract": {
+      "status": "passed",
+      "passed": 30,
+      "total": 30
+    },
+    "live_mcp": {
+      "status": "passed",
+      "passed": 9,
+      "total": 9,
+      "cases": [
+        {
+          "id": "postmortem-checkout-001",
+          "title": "Checkout postmortem covers recorded facts",
+          "category": "postmortem",
+          "status": "passed",
+          "latency_ms": 18.693,
+          "assertions": [
+            {
+              "name": "event:impact_updated",
+              "passed": true,
+              "actual": [
+                "impact_updated",
+                "runbook_retrieved"
+              ]
+            },
+            {
+              "name": "required_facts",
+              "passed": true,
+              "actual": {
+                "matched": 3,
+                "total": 3
+              }
+            },
+            {
+              "name": "forbidden_claim:database corruption",
+              "passed": true,
+              "actual": "database corruption"
+            },
+            {
+              "name": "forbidden_claim:permanent customer data loss",
+              "passed": true,
+              "actual": "permanent customer data loss"
+            }
+          ],
+          "metrics": {
+            "fact_coverage": 1.0,
+            "unsupported_claim_rate": 0.0
+          }
+        },
+        {
+          "id": "postmortem-redis-002",
+          "title": "Redis postmortem covers mitigation",
+          "category": "postmortem",
+          "status": "passed",
+          "latency_ms": 2.805,
+          "assertions": [
+            {
+              "name": "event:mitigation_executed",
+              "passed": true,
+              "actual": [
+                "mitigation_executed",
+                "runbook_retrieved"
+              ]
+            },
+            {
+              "name": "required_facts",
+              "passed": true,
+              "actual": {
+                "matched": 2,
+                "total": 2
+              }
+            },
+            {
+              "name": "forbidden_claim:data loss",
+              "passed": true,
+              "actual": "data loss"
+            }
+          ],
+          "metrics": {
+            "fact_coverage": 1.0,
+            "unsupported_claim_rate": 0.0
+          }
+        },
+        {
+          "id": "retrieval-redis-001",
+          "title": "Retrieve Redis OOM runbook",
+          "category": "retrieval",
+          "status": "passed",
+          "latency_ms": 2.1,
+          "assertions": [
+            {
+              "name": "event:runbook_retrieved",
+              "passed": true,
+              "actual": [
+                "runbook_retrieved"
+              ]
+            },
+            {
+              "name": "document:redis-oom-runbook",
+              "passed": true,
+              "actual": [
+                "checkout-latency-runbook",
+                "lambda-cold-start-runbook",
+                "lambda-concurrency-throttling-runbook",
+                "postgres-connection-pool-runbook",
+                "redis-eviction-runbook",
+                "redis-latency-runbook",
+                "redis-oom-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "retrieval-postgres-002",
+          "title": "Retrieve Postgres pool runbook",
+          "category": "retrieval",
+          "status": "passed",
+          "latency_ms": 2.214,
+          "assertions": [
+            {
+              "name": "document:postgres-connection-pool-runbook",
+              "passed": true,
+              "actual": [
+                "checkout-deployment-regression-runbook",
+                "gateway-connection-reset-runbook",
+                "lambda-concurrency-throttling-runbook",
+                "payment-webhook-failure-runbook",
+                "postgres-connection-pool-runbook",
+                "postgres-deadlock-runbook",
+                "postgres-replica-lag-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "retrieval-checkout-003",
+          "title": "Retrieve checkout deployment runbook",
+          "category": "retrieval",
+          "status": "passed",
+          "latency_ms": 2.109,
+          "assertions": [
+            {
+              "name": "document:checkout-deployment-regression-runbook",
+              "passed": true,
+              "actual": [
+                "checkout-5xx-runbook",
+                "checkout-deployment-regression-runbook",
+                "checkout-latency-runbook",
+                "kafka-consumer-lag-runbook",
+                "payment-webhook-failure-runbook",
+                "postgres-deadlock-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "retrieval-payment-004",
+          "title": "Retrieve payment gateway timeout runbook",
+          "category": "retrieval",
+          "status": "passed",
+          "latency_ms": 2.175,
+          "assertions": [
+            {
+              "name": "document:payment-gateway-timeout-runbook",
+              "passed": true,
+              "actual": [
+                "gateway-502-runbook",
+                "gateway-504-runbook",
+                "gateway-connection-reset-runbook",
+                "lambda-execution-timeout-runbook",
+                "payment-gateway-timeout-runbook",
+                "payment-rate-limit-runbook",
+                "payment-webhook-failure-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "retrieval-lambda-005",
+          "title": "Retrieve Lambda timeout runbook",
+          "category": "retrieval",
+          "status": "passed",
+          "latency_ms": 2.18,
+          "assertions": [
+            {
+              "name": "document:lambda-execution-timeout-runbook",
+              "passed": true,
+              "actual": [
+                "lambda-cold-start-runbook",
+                "lambda-concurrency-throttling-runbook",
+                "lambda-execution-timeout-runbook",
+                "payment-gateway-timeout-runbook",
+                "payment-rate-limit-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "suspend-redis-001",
+          "title": "Suspend escalation for Redis question and resume",
+          "category": "suspend_resume",
+          "status": "passed",
+          "latency_ms": 2.55,
+          "assertions": [
+            {
+              "name": "final_state",
+              "passed": true,
+              "actual": "escalation"
+            },
+            {
+              "name": "state:classify",
+              "passed": true,
+              "actual": [
+                "escalation",
+                "classify",
+                "escalation"
+              ]
+            },
+            {
+              "name": "state:escalation",
+              "passed": true,
+              "actual": [
+                "escalation",
+                "classify",
+                "escalation"
+              ]
+            },
+            {
+              "name": "document:redis-oom-runbook",
+              "passed": true,
+              "actual": [
+                "checkout-latency-runbook",
+                "lambda-cold-start-runbook",
+                "lambda-concurrency-throttling-runbook",
+                "postgres-connection-pool-runbook",
+                "redis-eviction-runbook",
+                "redis-latency-runbook",
+                "redis-oom-runbook"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        },
+        {
+          "id": "suspend-postgres-002",
+          "title": "Preserve context around Postgres lookup",
+          "category": "suspend_resume",
+          "status": "passed",
+          "latency_ms": 2.534,
+          "assertions": [
+            {
+              "name": "final_state",
+              "passed": true,
+              "actual": "escalation"
+            },
+            {
+              "name": "event:runbook_retrieved",
+              "passed": true,
+              "actual": [
+                "runbook_retrieved"
+              ]
+            }
+          ],
+          "metrics": {
+            "fact_coverage": null,
+            "unsupported_claim_rate": null
+          }
+        }
+      ],
+      "metrics": {
+        "retrieval_success_rate": 1.0,
+        "evidence_persistence_rate": 1.0,
+        "mcp_error_semantics_pass_rate": 1.0,
+        "p50_latency_ms": 2.214,
+        "p95_latency_ms": 18.693
+      },
+      "metadata": {
+        "rag_repo_commit": "74fd31d57bce8275c72d79c3d8590d0be42333fa",
+        "rag_collection": "opsbench_v1",
+        "rag_server_version": "0.1.0"
+      }
+    },
+    "redis_recovery": {
+      "status": "passed",
+      "passed": 3,
+      "total": 3,
+      "cases": [
+        {
+          "id": "redis-cross-worker-resume",
+          "passed": true,
+          "latency_ms": 1.3279169797897339
+        },
+        {
+          "id": "redis-stale-write",
+          "passed": true,
+          "latency_ms": 1.0799579322338104
+        },
+        {
+          "id": "redis-cross-worker-idempotency",
+          "passed": true,
+          "latency_ms": 1.3028749963268638
+        }
+      ],
+      "metrics": {
+        "passed": 3,
+        "total": 3,
+        "cross_worker_resume": "1/1",
+        "stale_write_rejection": "1/1",
+        "cross_worker_idempotency": "1/1",
+        "duplicate_event_rate": 0.0
+      }
+    }
+  }
+}
