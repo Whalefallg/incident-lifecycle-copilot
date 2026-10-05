@@ -1,7 +1,7 @@
 # IncidentBench v1
 
-Commit: `c2c65fab109dfa5058af8c691485b9b1448e3eaf`
-Working tree dirty: `true`
+Commit: `85b6ff6a886e482963191f113bc70f579a90159d`
+Working tree dirty: `false`
 State backend: `redis`
 Retrieval backend: `mcp`
 Execution mode: `layered_incidentbench`
@@ -19,7 +19,7 @@ Execution mode: `layered_incidentbench`
 | Stale Write Rejection Rate | 1.000 |
 | Postmortem Fact Coverage | 1.000 |
 | Unsupported Claim Rate | 0.000 |
-| p95 Scenario Latency (ms) | 0.391 |
+| p95 Scenario Latency (ms) | 0.387 |
 
 ## Categories
 
@@ -35,35 +35,35 @@ Execution mode: `layered_incidentbench`
 
 ## Scenario details
 
-- `basic-escalation-001`: **PASSED** (0.628 ms)
-- `basic-runbook-002`: **PASSED** (0.112 ms)
-- `basic-comms-003`: **PASSED** (0.164 ms)
+- `basic-escalation-001`: **PASSED** (0.770 ms)
+- `basic-runbook-002`: **PASSED** (0.111 ms)
+- `basic-comms-003`: **PASSED** (0.163 ms)
 - `basic-postmortem-004`: **PASSED** (0.094 ms)
-- `basic-severity-005`: **PASSED** (0.128 ms)
-- `basic-impact-006`: **PASSED** (0.112 ms)
-- `basic-mitigation-007`: **PASSED** (0.183 ms)
-- `basic-resolution-008`: **PASSED** (0.109 ms)
-- `concurrency-checkout-001`: **PASSED** (0.124 ms)
-- `concurrency-payment-002`: **PASSED** (0.123 ms)
-- `concurrency-redis-003`: **PASSED** (0.118 ms)
-- `degraded-startup-auto-001`: **PASSED** (0.092 ms)
+- `basic-severity-005`: **PASSED** (0.116 ms)
+- `basic-impact-006`: **PASSED** (0.109 ms)
+- `basic-mitigation-007`: **PASSED** (0.181 ms)
+- `basic-resolution-008`: **PASSED** (0.106 ms)
+- `concurrency-checkout-001`: **PASSED** (0.122 ms)
+- `concurrency-payment-002`: **PASSED** (0.118 ms)
+- `concurrency-redis-003`: **PASSED** (0.117 ms)
+- `degraded-startup-auto-001`: **PASSED** (0.091 ms)
 - `degraded-runtime-002`: **PASSED** (0.090 ms)
 - `degraded-malformed-003`: **PASSED** (0.090 ms)
-- `idempotency-escalation-001`: **PASSED** (0.100 ms)
-- `idempotency-runbook-002`: **PASSED** (0.098 ms)
-- `idempotency-comms-003`: **PASSED** (0.111 ms)
-- `idempotency-postmortem-004`: **PASSED** (0.095 ms)
-- `postmortem-checkout-001`: **PASSED** (0.391 ms)
-- `postmortem-redis-002`: **PASSED** (0.348 ms)
+- `idempotency-escalation-001`: **PASSED** (0.103 ms)
+- `idempotency-runbook-002`: **PASSED** (0.097 ms)
+- `idempotency-comms-003`: **PASSED** (0.109 ms)
+- `idempotency-postmortem-004`: **PASSED** (0.094 ms)
+- `postmortem-checkout-001`: **PASSED** (0.387 ms)
+- `postmortem-redis-002`: **PASSED** (0.344 ms)
 - `postmortem-payment-003`: **PASSED** (0.183 ms)
-- `retrieval-redis-001`: **PASSED** (0.147 ms)
-- `retrieval-postgres-002`: **PASSED** (0.146 ms)
-- `retrieval-checkout-003`: **PASSED** (0.139 ms)
-- `retrieval-payment-004`: **PASSED** (0.141 ms)
-- `retrieval-lambda-005`: **PASSED** (0.142 ms)
-- `suspend-redis-001`: **PASSED** (0.356 ms)
-- `suspend-postgres-002`: **PASSED** (0.331 ms)
-- `suspend-comms-003`: **PASSED** (0.259 ms)
+- `retrieval-redis-001`: **PASSED** (0.141 ms)
+- `retrieval-postgres-002`: **PASSED** (0.141 ms)
+- `retrieval-checkout-003`: **PASSED** (0.143 ms)
+- `retrieval-payment-004`: **PASSED** (0.138 ms)
+- `retrieval-lambda-005`: **PASSED** (0.148 ms)
+- `suspend-redis-001`: **PASSED** (0.366 ms)
+- `suspend-postgres-002`: **PASSED** (0.330 ms)
+- `suspend-comms-003`: **PASSED** (0.253 ms)
 - `suspend-lifo-004`: **PASSED** (0.166 ms)
 
 ## Evaluation layers

@@ -2,11 +2,11 @@
   "metadata": {
     "dataset_version": "incidentbench-v1",
     "dataset_hash": "2f47ebff1e848dd32a7506c795e48c89741fbccfb7d71b97b017714557f20fb6",
-    "timestamp": "2026-10-05T11:00:10.252848+00:00",
-    "git_dirty": true,
+    "timestamp": "2026-10-05T11:03:01.965378+00:00",
+    "git_dirty": false,
     "state_backend": "redis",
     "retrieval_backend": "mcp",
-    "incident_repo_commit": "c2c65fab109dfa5058af8c691485b9b1448e3eaf",
+    "incident_repo_commit": "85b6ff6a886e482963191f113bc70f579a90159d",
     "rag_repo_commit": "74fd31d57bce8275c72d79c3d8590d0be42333fa",
     "rag_collection": "opsbench_v1",
     "rag_server_version": "0.1.0",
@@ -27,7 +27,7 @@
     "stale_write_rejection_rate": 1.0,
     "postmortem_fact_coverage": 1.0,
     "unsupported_claim_rate": 0.0,
-    "p95_scenario_latency_ms": 0.391,
+    "p95_scenario_latency_ms": 0.387,
     "categories": {
       "basic": {
         "cases": 8,
@@ -65,7 +65,7 @@
       "title": "Enter checkout escalation",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.628,
+      "latency_ms": 0.77,
       "assertions": [
         {
           "name": "final_state",
@@ -111,7 +111,7 @@
       "title": "Enter runbook lookup",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.112,
+      "latency_ms": 0.111,
       "assertions": [
         {
           "name": "final_state",
@@ -137,7 +137,7 @@
       "title": "Enter stakeholder communication drafting",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.164,
+      "latency_ms": 0.163,
       "assertions": [
         {
           "name": "final_state",
@@ -188,7 +188,7 @@
       "title": "Persist severity classification event",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.128,
+      "latency_ms": 0.116,
       "assertions": [
         {
           "name": "final_state",
@@ -218,7 +218,7 @@
       "title": "Persist impact update",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.112,
+      "latency_ms": 0.109,
       "assertions": [
         {
           "name": "event:impact_updated",
@@ -238,7 +238,7 @@
       "title": "Persist mitigation lifecycle",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.183,
+      "latency_ms": 0.181,
       "assertions": [
         {
           "name": "event:mitigation_proposed",
@@ -272,7 +272,7 @@
       "title": "Persist resolved incident",
       "category": "basic",
       "status": "passed",
-      "latency_ms": 0.109,
+      "latency_ms": 0.106,
       "assertions": [
         {
           "name": "event:incident_resolved",
@@ -299,7 +299,7 @@
       "title": "Reject stale checkout worker write",
       "category": "concurrency",
       "status": "passed",
-      "latency_ms": 0.124,
+      "latency_ms": 0.122,
       "assertions": [
         {
           "name": "stale_write_rejected",
@@ -317,7 +317,7 @@
       "title": "Reject stale payment worker write",
       "category": "concurrency",
       "status": "passed",
-      "latency_ms": 0.123,
+      "latency_ms": 0.118,
       "assertions": [
         {
           "name": "stale_write_rejected",
@@ -335,7 +335,7 @@
       "title": "Reject stale Redis incident write",
       "category": "concurrency",
       "status": "passed",
-      "latency_ms": 0.118,
+      "latency_ms": 0.117,
       "assertions": [
         {
           "name": "stale_write_rejected",
@@ -353,7 +353,7 @@
       "title": "Auto mode startup failure falls back explicitly",
       "category": "degraded",
       "status": "passed",
-      "latency_ms": 0.092,
+      "latency_ms": 0.091,
       "assertions": [
         {
           "name": "degraded_outcome",
@@ -407,7 +407,7 @@
       "title": "Duplicate escalation request is stable",
       "category": "idempotency",
       "status": "passed",
-      "latency_ms": 0.1,
+      "latency_ms": 0.103,
       "assertions": [
         {
           "name": "duplicate_event_count",
@@ -435,7 +435,7 @@
       "title": "Duplicate runbook request is stable",
       "category": "idempotency",
       "status": "passed",
-      "latency_ms": 0.098,
+      "latency_ms": 0.097,
       "assertions": [
         {
           "name": "idempotency_required",
@@ -458,7 +458,7 @@
       "title": "Duplicate communication request is stable",
       "category": "idempotency",
       "status": "passed",
-      "latency_ms": 0.111,
+      "latency_ms": 0.109,
       "assertions": [
         {
           "name": "idempotency_required",
@@ -481,7 +481,7 @@
       "title": "Duplicate postmortem request is stable",
       "category": "idempotency",
       "status": "passed",
-      "latency_ms": 0.095,
+      "latency_ms": 0.094,
       "assertions": [
         {
           "name": "idempotency_required",
@@ -504,7 +504,7 @@
       "title": "Checkout postmortem covers recorded facts",
       "category": "postmortem",
       "status": "passed",
-      "latency_ms": 0.391,
+      "latency_ms": 0.387,
       "assertions": [
         {
           "name": "event:impact_updated",
@@ -543,7 +543,7 @@
       "title": "Redis postmortem covers mitigation",
       "category": "postmortem",
       "status": "passed",
-      "latency_ms": 0.348,
+      "latency_ms": 0.344,
       "assertions": [
         {
           "name": "event:mitigation_executed",
@@ -610,7 +610,7 @@
       "title": "Retrieve Redis OOM runbook",
       "category": "retrieval",
       "status": "passed",
-      "latency_ms": 0.147,
+      "latency_ms": 0.141,
       "assertions": [
         {
           "name": "event:runbook_retrieved",
@@ -637,7 +637,7 @@
       "title": "Retrieve Postgres pool runbook",
       "category": "retrieval",
       "status": "passed",
-      "latency_ms": 0.146,
+      "latency_ms": 0.141,
       "assertions": [
         {
           "name": "document:postgres-connection-pool-runbook",
@@ -657,7 +657,7 @@
       "title": "Retrieve checkout deployment runbook",
       "category": "retrieval",
       "status": "passed",
-      "latency_ms": 0.139,
+      "latency_ms": 0.143,
       "assertions": [
         {
           "name": "document:checkout-deployment-regression-runbook",
@@ -677,7 +677,7 @@
       "title": "Retrieve payment gateway timeout runbook",
       "category": "retrieval",
       "status": "passed",
-      "latency_ms": 0.141,
+      "latency_ms": 0.138,
       "assertions": [
         {
           "name": "document:payment-gateway-timeout-runbook",
@@ -697,7 +697,7 @@
       "title": "Retrieve Lambda timeout runbook",
       "category": "retrieval",
       "status": "passed",
-      "latency_ms": 0.142,
+      "latency_ms": 0.148,
       "assertions": [
         {
           "name": "document:lambda-execution-timeout-runbook",
@@ -717,7 +717,7 @@
       "title": "Suspend escalation for Redis question and resume",
       "category": "suspend_resume",
       "status": "passed",
-      "latency_ms": 0.356,
+      "latency_ms": 0.366,
       "assertions": [
         {
           "name": "final_state",
@@ -760,7 +760,7 @@
       "title": "Preserve context around Postgres lookup",
       "category": "suspend_resume",
       "status": "passed",
-      "latency_ms": 0.331,
+      "latency_ms": 0.33,
       "assertions": [
         {
           "name": "final_state",
@@ -785,7 +785,7 @@
       "title": "Suspend escalation for communication task",
       "category": "suspend_resume",
       "status": "passed",
-      "latency_ms": 0.259,
+      "latency_ms": 0.253,
       "assertions": [
         {
           "name": "final_state",
@@ -858,7 +858,7 @@
           "title": "Checkout postmortem covers recorded facts",
           "category": "postmortem",
           "status": "passed",
-          "latency_ms": 15.608,
+          "latency_ms": 18.693,
           "assertions": [
             {
               "name": "event:impact_updated",
@@ -897,7 +897,7 @@
           "title": "Redis postmortem covers mitigation",
           "category": "postmortem",
           "status": "passed",
-          "latency_ms": 2.593,
+          "latency_ms": 2.805,
           "assertions": [
             {
               "name": "event:mitigation_executed",
@@ -931,7 +931,7 @@
           "title": "Retrieve Redis OOM runbook",
           "category": "retrieval",
           "status": "passed",
-          "latency_ms": 2.225,
+          "latency_ms": 2.1,
           "assertions": [
             {
               "name": "event:runbook_retrieved",
@@ -964,7 +964,7 @@
           "title": "Retrieve Postgres pool runbook",
           "category": "retrieval",
           "status": "passed",
-          "latency_ms": 2.158,
+          "latency_ms": 2.214,
           "assertions": [
             {
               "name": "document:postgres-connection-pool-runbook",
@@ -990,7 +990,7 @@
           "title": "Retrieve checkout deployment runbook",
           "category": "retrieval",
           "status": "passed",
-          "latency_ms": 2.174,
+          "latency_ms": 2.109,
           "assertions": [
             {
               "name": "document:checkout-deployment-regression-runbook",
@@ -1015,7 +1015,7 @@
           "title": "Retrieve payment gateway timeout runbook",
           "category": "retrieval",
           "status": "passed",
-          "latency_ms": 2.25,
+          "latency_ms": 2.175,
           "assertions": [
             {
               "name": "document:payment-gateway-timeout-runbook",
@@ -1041,7 +1041,7 @@
           "title": "Retrieve Lambda timeout runbook",
           "category": "retrieval",
           "status": "passed",
-          "latency_ms": 2.273,
+          "latency_ms": 2.18,
           "assertions": [
             {
               "name": "document:lambda-execution-timeout-runbook",
@@ -1065,7 +1065,7 @@
           "title": "Suspend escalation for Redis question and resume",
           "category": "suspend_resume",
           "status": "passed",
-          "latency_ms": 2.353,
+          "latency_ms": 2.55,
           "assertions": [
             {
               "name": "final_state",
@@ -1114,7 +1114,7 @@
           "title": "Preserve context around Postgres lookup",
           "category": "suspend_resume",
           "status": "passed",
-          "latency_ms": 2.506,
+          "latency_ms": 2.534,
           "assertions": [
             {
               "name": "final_state",
@@ -1139,8 +1139,8 @@
         "retrieval_success_rate": 1.0,
         "evidence_persistence_rate": 1.0,
         "mcp_error_semantics_pass_rate": 1.0,
-        "p50_latency_ms": 2.273,
-        "p95_latency_ms": 15.608
+        "p50_latency_ms": 2.214,
+        "p95_latency_ms": 18.693
       },
       "metadata": {
         "rag_repo_commit": "74fd31d57bce8275c72d79c3d8590d0be42333fa",
@@ -1156,17 +1156,17 @@
         {
           "id": "redis-cross-worker-resume",
           "passed": true,
-          "latency_ms": 1.1177919805049896
+          "latency_ms": 1.3279169797897339
         },
         {
           "id": "redis-stale-write",
           "passed": true,
-          "latency_ms": 1.0522090597078204
+          "latency_ms": 1.0799579322338104
         },
         {
           "id": "redis-cross-worker-idempotency",
           "passed": true,
-          "latency_ms": 1.3689579209312797
+          "latency_ms": 1.3028749963268638
         }
       ],
       "metrics": {
