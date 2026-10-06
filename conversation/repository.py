@@ -3,12 +3,8 @@
 import asyncio
 import json
 from abc import ABC, abstractmethod
-from typing import Any
 
-try:
-    from redis.asyncio import Redis
-except ImportError:  # Memory-only tools/tests must not require the optional Redis runtime.
-    Redis = Any  # type: ignore[misc,assignment]
+from redis.asyncio import Redis
 
 from .models import ConversationSnapshot, utc_now
 
